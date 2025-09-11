@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, Notification } from 'electron';
+import pkg from 'electron-updater'; const { autoUpdater } = pkg;
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -9,33 +10,35 @@ import { createRpcClient } from './rpc.js';
 import { startActiveWindowWatcher } from './watcher.js';
 import { createLogger, loggerConfig } from './logger.js';
 
+// __dirname, __filename 설정
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// rootFolder는 아래에서 최초 1회만 선언
+
+// 프로젝트 루트 폴더 설정 (빌드: resourcesPath, 개발: 프로젝트 루트)
 let rootFolder = app.isPackaged ? process.resourcesPath : path.resolve(__dirname, '..');
 
 // 빌드 환경에 따른 로그 설정 적용
 if (app.isPackaged) {
-    // 제품 빌드용 설정: 최대 5개 파일, WARN 이상만 파일에 저장, 콘솔은 INFO 이상
+    // 제품 빌드: 최대 5개 파일, WARN 이상만 파일에 저장, 콘솔은 INFO 이상, 파일당 500줄
     loggerConfig.setMaxLogFiles(5);
     loggerConfig.setFileLogLevel('WARN');
     loggerConfig.setLogRotation(true);
     loggerConfig.setDefaultLevel('INFO');
     loggerConfig.setConsoleLogging(true);
     loggerConfig.setFileLogging(true);
-    loggerConfig.setMaxLogLines(500); // 제품 빌드: 파일당 500줄
+    loggerConfig.setMaxLogLines(500);
 } else {
-    // 개발 빌드용 설정: 최대 10개 파일, 모든 레벨 파일에 저장, 콘솔도 모든 레벨
+    // 개발 빌드: 최대 10개 파일, 모든 레벨 파일에 저장, 콘솔도 모든 레벨, 파일당 1000줄
     loggerConfig.setMaxLogFiles(10);
     loggerConfig.setFileLogLevel('DEBUG');
     loggerConfig.setLogRotation(true);
     loggerConfig.setDefaultLevel('DEBUG');
     loggerConfig.setConsoleLogging(true);
     loggerConfig.setFileLogging(true);
-    loggerConfig.setMaxLogLines(1000); // 개발 빌드: 파일당 1000줄
+    loggerConfig.setMaxLogLines(1000);
 }
 
-// Electron 메인 프로세스 로거 - 앱 초기화, 창 관리, 트레이, RPC 연결 등 메인 프로세스 전반의 로깅 담당
+// 로거 초기화 및 설정
 const logger = createLogger('MainProcess');
 let mainWindow = null;
 let rpcClient = null;
@@ -45,7 +48,13 @@ let currentWindowInfo = null;
 let startupMinimized = true; // 시작 시 트레이로 최소화 설정
 let rpcEnabled = true; // RPC 활동 상태 공유 활성화 상태
 
-function notify(title, body) {
+const defaultActivity = {
+    largeImageKey: 'app',
+    largeImageText: 'Distalker',
+    instance: true
+};
+
+async function notify(title, body) {
     try {
         const iconPath = path.join(rootFolder, 'assets', 'icons', 'png', '256.png');
         new Notification({ 
@@ -54,8 +63,8 @@ function notify(title, body) {
             body, 
             silent: false
         }).show();
-    } catch (_) {
-        // ignore notification failures
+    } catch (error) {
+        logger.warn(`알림 전송에 실패했습니다: ${error?.message || error}`);
     }
 }
 
@@ -70,8 +79,8 @@ async function waitForUrl(url, { timeoutMs = 15000, intervalMs = 300 } = {}) {
         try {
             const res = await fetch(url, { method: 'GET' });
             if (res.ok) return true;
-        } catch (_) {
-            // ignore and retry
+        } catch (error) {
+            // 무시하고 재시도
         }
         await new Promise(r => setTimeout(r, intervalMs));
     }
@@ -81,6 +90,34 @@ async function waitForUrl(url, { timeoutMs = 15000, intervalMs = 300 } = {}) {
 function getSettingsPath() {
     return path.join(app.getPath('userData'), 'settings.json');
 }
+
+autoUpdater.on('checking-for-update', () => {
+    logger.info('업데이트를 확인하는 중...');
+});
+
+autoUpdater.on('update-available', (info) => {
+    logger.info('다운로드 가능한 업데이트가 있습니다.');
+});
+
+autoUpdater.on('update-not-available', (info) => {
+    logger.info('현재 최신 버전을 사용 중입니다.');
+});
+
+autoUpdater.on('error', (err) => {
+    logger.warn(`업데이트 중 오류가 발생했습니다: ${err?.message || err}`);
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+    let logMessage = `다운로드 속도: ${Math.round(progressObj.bytesPerSecond / 1024)} KB/s - `;
+    logMessage += `진행률: ${progressObj.percent.toFixed(2)}% `;
+    logMessage += `(${progressObj.transferred}/${progressObj.total})`;
+    logger.info(logMessage);
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+    logger.info('업데이트가 다운로드되었습니다. 앱을 재시작하여 설치할 수 있습니다.');
+    notify('🔔 업데이트 다운로드 완료', '앱을 재시작하여 최신 버전을 설치할 수 있습니다.');
+});
 
 function loadSettings() {
     try {
@@ -94,7 +131,7 @@ function loadSettings() {
         }
     } catch (error) {
         logger.warn(`설정을 불러오는 중 오류가 발생했습니다: ${error.message}`);
-        startupMinimized = true; // 기본값
+        startupMinimized = false; // 기본값
         rpcEnabled = true; // 기본값
     }
 }
@@ -115,16 +152,15 @@ async function toggleRpcActivity() {
 
     try {
         if (rpcEnabled) {
-            // RPC 활동 중단 - null로 설정하여 활동 제거
             await rpcClient.setActivity({
                 details: "활동 상태 공유가 중단되었습니다.",
                 state: "사용자가 자신의 활동을 공유하지 않도록 설정했습니다.",
-                largeImageKey: 'app',
-                largeImageText: 'Distalker',
-                instance: true,
                 startTimestamp: Date.now(),
+                ...defaultActivity
             });
+
             rpcEnabled = false;
+
             logger.info('사용자가 활동 상태 공유를 중단했습니다.');
             notify('🔔 활동 상태 공유 중단', '활동 상태 공유를 비활성화했습니다.');
         } else {
@@ -136,16 +172,17 @@ async function toggleRpcActivity() {
                 await rpcClient.setActivity({
                     details,
                     state,
-                    largeImageKey: 'app',
-                    largeImageText: 'Distalker',
-                    instance: true,
                     startTimestamp: Date.now(),
+                    ...defaultActivity
                 });
+
                 logger.info(`사용자가 활동 상태 공유를 재개했습니다.`);
                 notify('🔔 활동 상태 공유 재개', '활동 상태 공유를 활성화했습니다.');
             }
+
             rpcEnabled = true;
         }
+
         saveSettings();
         updateTrayMenu();
         
@@ -156,16 +193,17 @@ async function toggleRpcActivity() {
                 startupMinimized: startupMinimized,
                 rpcEnabled: rpcEnabled
             });
-                // 설정 변경 즉시 RPC 상태도 동기화
-                mainWindow.webContents.send('rpc-status', {
-                    connected: rpcClient ? rpcClient.isConnected() : false,
-                    enabled: rpcEnabled,
-                    timestamp: new Date().toISOString()
-                });
+
+            // RPC 상태 동기화
+            mainWindow.webContents.send('rpc-status', {
+                connected: rpcClient ? rpcClient.isConnected() : false,
+                enabled: rpcEnabled,
+                timestamp: new Date().toISOString()
+            });
         }
     } catch (error) {
         logger.warn(`활동 상태 변경 실패: ${error.message}`);
-        notify('❗ 활동 상태 변경 실패', '잠시 후 다시 시도해주세요!');
+        notify('❗ 활동 상태 변경 실패', '무언가 잘못되었습니다.');
     }
 }
 
@@ -369,8 +407,11 @@ function setupIpc() {
     });
 }
 
-async function boot() {
+async function startUp() {
     await app.whenReady();
+
+    autoUpdater.checkForUpdatesAndNotify();
+
     app.setAppUserModelId("Distalker");
     
     // 설정 로드
@@ -382,6 +423,7 @@ async function boot() {
             const base = process.resourcesPath || __dirname;
             const envPath = path.join(base, '.env');
             const envProd = path.join(base, '.env.production');
+
             if (fs.existsSync(envPath)) {
                 dotenv.config({ path: envPath });
                 logger.debug('개발 환경 설정 파일을 불러왔습니다.');
@@ -391,16 +433,18 @@ async function boot() {
             }
         } else {
             const devEnv = path.join(process.cwd(), '.env.development');
+
             if (fs.existsSync(devEnv)) {
                 dotenv.config({ path: devEnv });
                 logger.debug('.env.development 파일을 불러왔습니다.');
             }
         }
-    } catch (_) { /* ignore */ }
+    } catch (_) { /* 무시까버리기*/ }
+
     setupIpc();
     await createWindow();
     
-    // 시작 시 트레이 최소화가 활성화된 경우 창을 숨김
+    // 시작 시 트레이 최소화가 활성화된 경우 창을 렌더링하지 않음
     if (!startupMinimized) {
         mainWindow.show();
     } else {
@@ -408,15 +452,16 @@ async function boot() {
     }
 
     const clientId = process.env.DISCORD_CLIENT_ID;
+
     if (!clientId) {
         logger.warn('DISCORD_CLIENT_ID 가 정의되지 않았습니다. 활동 상태 공유가 비활성화됩니다.');
         notify('❗ DISCORD_CLIENT_ID 미설정', '활동 상태 공유가 비활성화됩니다.');
     } else {
         try {
-            rpcClient = await createRpcClient(clientId, logger, (title, body) => {
+            rpcClient = await createRpcClient(clientId, (title, body) => {
                 notify(title, body);
-                // RPC 상태 변경 시 트레이 메뉴와 UI 업데이트
                 updateTrayMenu();
+
                 if (mainWindow && rpcClient) {
                     mainWindow.webContents.send('rpc-status', {
                         connected: rpcClient.isConnected(),
@@ -448,51 +493,61 @@ async function boot() {
             logger.warn(`Discord RPC 초기화 실패: ${e?.message || e}`);
             notify('❗ Discord RPC 초기화 실패', 'Discord 클라이언트가 실행 중인지 확인하세요.');
         }
+
         startActiveWindowWatcher({
             onWindowChange: async (info) => {
-                const details = info?.title || 'Untitled';
-                const state = info?.owner?.name ? `by ${info.owner.name}` : undefined;
-                
-                // 현재 창 정보 업데이트
+                const details = info?.title || '알 수 없는 윈도우';
+                const state = info?.owner?.name ? `by ${info.owner.name}` : '알 수 없는 앱';
+
                 currentWindowInfo = {
                     title: details,
-                    app: info?.owner?.name || 'Unknown',
+                    app: info?.owner?.name || '알 수 없는 앱',
                     timestamp: new Date().toISOString(),
                     ...info
                 };
-                
-                // 렌더러에 창 정보 업데이트 알림
+
                 if (mainWindow) {
                     mainWindow.webContents.send('window-changed', currentWindowInfo);
                 }
-                
+
+                if (info?.error) {
+                    await rpcClient.setActivity({
+                        details: "❌ 활동 상태를 불러올 수 없습니다.",
+                        state: info.message,
+                        startTimestamp: Date.now(),
+                        ...defaultActivity
+                    });
+
+                    logger.info('활동 상태를 불러올 수 없어 Discord에 이를 표시했습니다.');
+
+                    return;
+                }
+
                 try {
                     if (rpcClient?.setActivity && rpcEnabled && rpcClient.isConnected()) {
                         await rpcClient.setActivity({
                             details,
                             state,
-                            largeImageKey: 'app',
-                            largeImageText: 'Distalker',
-                            instance: false,
                             startTimestamp: Date.now(),
+                            ...defaultActivity
                         });
+
                         logger.info(`활동 상태 업데이트: ${details}`);
                     } else if (rpcClient?.setActivity && !rpcEnabled && rpcClient.isConnected()) {
-                        // 활동 상태 공유가 비활성화된 경우 중단 메시지를 유지
                         await rpcClient.setActivity({
-                            details: "사용자가 활동 상태 공유를 중단했습니다.",
-                            state: "사용자가 자신의 활동을 공유하지 않도록 설정했습니다.",
-                            largeImageKey: 'app',
-                            largeImageText: 'Distalker',
-                            instance: true,
+                            details: "❗ 사용자가 활동 상태 공유를 중단했습니다.",
+                            state: "사용자가 자신의 활동 상태를 공유하지 않도록 설정했습니다.",
                             startTimestamp: Date.now(),
+                            ...defaultActivity
                         });
+
                         logger.debug('활동 상태가 비활성화 상태로 클리어되었습니다.');
                     } else if (!rpcClient?.isConnected()) {
                         logger.debug('RPC가 연결되지 않아 활동 상태 업데이트를 건너뜁니다.');
                     }
                 } catch (e) {
                     const retrySeconds = Math.round((intervalMs || 1500) / 1000);
+
                     logger.warn(`활동 상태 업데이트 실패: ${e?.message || e}, ${retrySeconds}초 후 재시도합니다...`);
                     notify('❗ 활동 상태 업데이트 실패', `${retrySeconds}초 후 다시 시도합니다...`);
                 }
@@ -510,8 +565,8 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
 
-boot().catch((err) => {
-    logger.error(`시작 실패: ${err?.stack || err}`);
+startUp().catch((err) => {
+    logger.error(`Distalker를 시작하는 도중에 문제가 발생했습니다: ${err?.stack || err}`);
     app.quit();
 });
 

@@ -168,7 +168,7 @@ class LogManager {
         if (!loggerConfig.enableLogRotation || !fs.existsSync(this.#logFilePath)) {
             return;
         }
-        
+
         try {
             const content = fs.readFileSync(this.#logFilePath, 'utf8');
             const lines = content.split('\n').filter(line => line.trim() !== '');

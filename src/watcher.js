@@ -1,19 +1,34 @@
 import activeWin from 'active-win';
+import { createLogger } from './logger.js';
 
-export function startActiveWindowWatcher({ onWindowChange, intervalMs = 1500, logger }) {
+const logger = createLogger('activeWindowWatcher');
+
+export function startActiveWindowWatcher({ onWindowChange, intervalMs = 1500 }) {
     let lastTitle = null;
+    let lastOwnerPath = null;
+    let cantLoad = false;
     let timer = null;
+    let info;
 
     async function poll() {
         try {
-            const info = await activeWin();
+            info = await activeWin();
             const title = info?.title || null;
-            if (title && title !== lastTitle) {
+            const ownerPath = info?.owner?.path || null;
+
+            if (title !== lastTitle || ownerPath !== lastOwnerPath) {
                 lastTitle = title;
+                lastOwnerPath = ownerPath;
                 onWindowChange?.(info);
             }
+            if (cantLoad) cantLoad = false, logger.info?.(`이제 활동 상태를 확인할 수 있습니다.`);
         } catch (e) {
-            logger?.warn?.(`활성 창 조회에 실패했습니다: ${e?.message || e}`);
+            if (!cantLoad) {
+                info = { error: true, message: '활성 윈도우를 확인할 수 없음.', timestamp: new Date().toISOString() };
+                cantLoad = true;
+                logger.warn?.(`활동 상태를 확인할 수 없습니다: ${e?.message || e}`);
+                onWindowChange?.(info);
+            }
         }
     }
 

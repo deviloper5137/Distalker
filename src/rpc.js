@@ -1,6 +1,9 @@
 import RPC from 'discord-rpc';
+import { createLogger } from './logger.js';
 
-export async function createRpcClient(clientId, logger, notifyCallback = null) {
+const logger = createLogger('rpcManager');
+
+export async function createRpcClient(clientId, notifyCallback = null) {
     let rpc = new RPC.Client({ transport: 'ipc' });
     let isConnected = false;
     let reconnectAttempts = 0;
@@ -19,14 +22,15 @@ export async function createRpcClient(clientId, logger, notifyCallback = null) {
                 clearTimeout(timeout);
                 isConnected = true;
                 reconnectAttempts = 0;
-                logger.info('Discord RPC가 연결되었습니다.');
+
+                logger.info('Discord RPC에 연결되었습니다.');
                 resolve(rpc);
             });
 
             rpc.login({ clientId }).catch((err) => {
                 clearTimeout(timeout);
                 isConnected = false;
-                logger.warn(`Discord RPC 로그인 실패: ${err?.message || err}`);
+                logger.warn(`Discord RPC에 연결할 수 없습니다: ${err?.message || err}`);
                 reject(err);
             });
         });
@@ -43,26 +47,26 @@ export async function createRpcClient(clientId, logger, notifyCallback = null) {
         
         // 기존 RPC 인스턴스 정리
         try {
-            if (rpc && typeof rpc.destroy === 'function') {
+            if (rpc && typeof rpc?.destroy === 'function') {
                 rpc.destroy();
             }
         } catch (e) {
-            logger.warn(`기존 RPC 인스턴스 정리 중 오류: ${e?.message || e}`);
+            logger.warn(`기존 RPC 인스턴스를 정리할 수 없습니다: ${e?.message || e}`);
         }
-        
+
         // 새로운 RPC 인스턴스 생성
         rpc = new RPC.Client({ transport: 'ipc' });
-        
+
         // 새로운 인스턴스에 이벤트 리스너 재등록
         rpc.on('disconnected', () => {
             isConnected = false;
-            logger.warn('Discord RPC 연결이 끊어졌습니다. 재연결을 시도합니다...');
+            logger.warn('Discord RPC와 연결이 끊어졌습니다. 재연결을 시도합니다...');
             if (notifyCallback) {
-                notifyCallback('❗ Discord RPC 연결 끊김', 'Discord RPC 연결이 끊어졌습니다. 재연결을 시도합니다...');
+                notifyCallback('❗ Discord와 연결 끊김', 'Discord와 연결이 끊어졌습니다. 재연결을 시도합니다...');
             }
             reconnect();
         });
-        
+
         setTimeout(() => {
             connect().then(() => {
                 // 연결 성공 시 재연결 간격 초기화
@@ -70,7 +74,7 @@ export async function createRpcClient(clientId, logger, notifyCallback = null) {
                 reconnectAttempts = 0;
                 isReconnecting = false;
                 if (notifyCallback) {
-                    notifyCallback('✅ Discord RPC에 연결됨', 'Discord RPC가 다시 연결되었습니다.');
+                    notifyCallback('✅ Discord와 연결됨', 'Discord와 다시 연결되었습니다.');
                 }
             }).catch((e) => {
                 logger.warn(`Discord RPC 재연결에 실패했습니다: ${e?.message || e}`);
@@ -85,9 +89,9 @@ export async function createRpcClient(clientId, logger, notifyCallback = null) {
 
     rpc.on('disconnected', () => {
         isConnected = false;
-        logger.warn('Discord RPC 연결이 끊어졌습니다. 재연결을 시도합니다...');
+        logger.warn('Discord RPC와 연결이 끊어졌습니다. 재연결을 시도합니다...');
         if (notifyCallback) {
-            notifyCallback('❗ Discord RPC 연결 끊김', 'Discord RPC 연결이 끊어졌습니다. 재연결을 시도합니다...');
+            notifyCallback('❗ Discord와 연결 끊김', 'Discord와 연결이 끊어졌습니다. 재연결을 시도합니다...');
         }
         // 연결 끊김 즉시 메인 프로세스에 상태 브로드캐스트
         if (global.mainWindow) {
@@ -107,8 +111,9 @@ export async function createRpcClient(clientId, logger, notifyCallback = null) {
     try {
         await connect();
     } catch (e) {
-        logger.error(`초기 Discord RPC 연결에 실패했습니다: ${e?.message || e}`);
-        throw e;
+        logger.error(`첫 Discord RPC 연결에 실패했습니다: ${e?.message || e}`);
+        // 첫 연결 실패 시에도 재시도 로직 적용
+        reconnect();
     }
 
     return {
@@ -138,5 +143,4 @@ export async function createRpcClient(clientId, logger, notifyCallback = null) {
         isConnected: () => isConnected
     };
 }
-
 
