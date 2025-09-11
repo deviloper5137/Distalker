@@ -12,7 +12,7 @@ export const logLevels = {
 
 const resetColor = '\x1b[0m';
 
-// 전역 로거 설정 관리자
+// 전역 로거 설정 관리
 class LoggerConfig {
     constructor() {
         this.defaultLevel = 'INFO';
@@ -141,7 +141,6 @@ class LogManager {
         return [...this.#loggers];
     }
 
-    // Logger 관련 로직은 분리됨
     _pushLog(log) {
         this.#logs.push(log);
     }
@@ -156,7 +155,6 @@ class LogManager {
                 if (err) {
                     console.error('로그를 저장할 수 없습니다: ', err);
                 } else {
-                    // 로그 저장 후 줄 수 확인 및 로테이션
                     this.rotateLogLines();
                 }
             });
@@ -174,7 +172,6 @@ class LogManager {
             const lines = content.split('\n').filter(line => line.trim() !== '');
             
             if (lines.length > loggerConfig.maxLogLines) {
-                // 최대 줄 수를 초과하면 오래된 줄들 삭제 (맨 위부터)
                 const linesToKeep = lines.slice(-loggerConfig.maxLogLines);
                 fs.writeFileSync(this.#logFilePath, linesToKeep.join('\n') + '\n');
             }
@@ -208,7 +205,7 @@ export class Logger {
     }
 
     #shouldLog(level) {
-        // 전역 설정의 기본 레벨을 우선 사용 (개발 환경에서 모든 레벨 출력을 위해)
+        // 전역 설정의 기본 레벨을 우선 사용
         return this.#levelOrder.indexOf(level) >= this.#levelOrder.indexOf(loggerConfig.defaultLevel);
     }
     

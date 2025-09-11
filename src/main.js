@@ -569,4 +569,3 @@ startUp().catch((err) => {
     app.quit();
 });
 
-

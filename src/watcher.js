@@ -21,10 +21,10 @@ export function startActiveWindowWatcher({ onWindowChange, intervalMs = 1500 }) 
                 lastOwnerPath = ownerPath;
                 onWindowChange?.(info);
             }
-            if (cantLoad) cantLoad = false, logger.info?.(`이제 활동 상태를 확인할 수 있습니다.`);
+            if (cantLoad) cantLoad = false, logger.info?.(`이제부터 활동 상태를 확인할 수 있습니다.`);
         } catch (e) {
             if (!cantLoad) {
-                info = { error: true, message: '활성 윈도우를 확인할 수 없음.', timestamp: new Date().toISOString() };
+                info = { error: true, message: '활동을 불러오는 중 문제가 발생함.', timestamp: new Date().toISOString() };
                 cantLoad = true;
                 logger.warn?.(`활동 상태를 확인할 수 없습니다: ${e?.message || e}`);
                 onWindowChange?.(info);
