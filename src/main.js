@@ -537,7 +537,6 @@ async function startUp() {
                         await rpcClient.setActivity({
                             details: "❗ 사용자가 활동 상태 공유를 중단했습니다.",
                             state: "사용자가 자신의 활동 상태를 공유하지 않도록 설정했습니다.",
-                            startTimestamp: Date.now(),
                             ...defaultActivity
                         });
 
