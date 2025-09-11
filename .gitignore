@@ -3,3 +3,5 @@ logs
 dist
 .env
 .vscode
+TODO
+.gitignore
