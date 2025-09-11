@@ -28,7 +28,7 @@
     "name": "deviloper.5137",
     "email": "deviloper.5137@gmail.com"
   },
-  "license": "ISC",
+  "license": "MIT",
   "homepage": "https://github.com/deviloper5137/Distalker",
   "dependencies": {
     "active-win": "^8.1.0",
