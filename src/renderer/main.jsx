@@ -116,7 +116,7 @@ function App() {
                     position: 'relative',
                     width: 44,
                     height: 24,
-                    backgroundColor: checked ? '#7eb3f7' : '#374151',
+                    backgroundColor: checked ? 'oklch(78.5% 0.19 255)' : 'oklch(36.5% 0.04 264)',
                     borderRadius: 12,
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     marginRight: 8,
@@ -124,8 +124,8 @@ function App() {
                     opacity: disabled ? 0.6 : 1,
                     transform: 'scale(1)',
                     boxShadow: checked 
-                        ? '0 0 0 4px rgba(126, 179, 247, 0.1)' 
-                        : '0 0 0 0px rgba(55, 65, 81, 0.1)',
+                        ? '0 0 0 4px oklch(78.5% 0.19 255 / 0.1)' 
+                        : '0 0 0 0px oklch(36.5% 0.04 264 / 0.1)',
                     border: '1px solid transparent'
                 }}
                 onClick={disabled ? undefined : onChange}
@@ -151,14 +151,14 @@ function App() {
                     left: 2,
                     width: 18,
                     height: 18,
-                    backgroundColor: '#ffffff',
+                    backgroundColor: 'oklch(100% 0 0)',
                     borderRadius: '50%',
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     boxShadow: checked 
-                        ? '0 2px 8px rgba(126, 179, 247, 0.3), 0 1px 3px rgba(0,0,0,0.2)' 
-                        : '0 2px 4px rgba(0,0,0,0.2)',
+                        ? '0 2px 8px oklch(78.5% 0.19 255 / 0.3), 0 1px 3px oklch(0% 0 0 / 0.2)' 
+                        : '0 2px 4px oklch(0% 0 0 / 0.2)',
                     transform: checked ? 'translateX(20px) scale(1.05)' : 'translateX(0px) scale(1)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                    border: '1px solid oklch(100% 0 0 / 0.2)'
                 }} />
             </div>
         );
@@ -177,25 +177,25 @@ function App() {
     return (
         <div style={{
             fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
-            background: rpcSharing ? '#000000' : '#000000', 
-            color: '#e2e8f0',
+            background: rpcSharing ? 'oklch(0% 0 0)' : 'oklch(0% 0 0)', 
+            color: 'oklch(93.5% 0.03 240)',
             minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
             position: 'relative', overflow: 'hidden',
             transition: 'background-color 0.3s ease'
         }}>
             <div style={{
                 position: 'absolute', inset: 0, pointerEvents: 'none',
-                background: 'radial-gradient(60% 40% at 50% 110%,rgba(201, 224, 255, 0.47) 0%, rgba(201, 224, 255, 0.5), rgba(156, 157, 255, 0.1) 55%, rgba(0,0,0,0.0) 75%)',
+                background: 'radial-gradient(60% 40% at 50% 110%,oklch(92% 0.05 250 / 0.47) 0%, oklch(92% 0.05 250 / 0.5), oklch(70% 0.05 250 / 0.1) 55%, oklch(0% 0 0 / 0.0) 75%)',
                 filter: rpcSharing ? 'blur(26px)' : 'blur(18px)',
                 opacity: rpcSharing ? 1.2 : 1,
                 transition: 'opacity 0.3s ease, filter 0.3s ease'
             }}></div>
             <div style={{ 
                 width: 560, padding: 24, borderRadius: 16, 
-                background: rpcSharing ? ' #131b2e' : ' #111827', 
+                background: rpcSharing ? 'oklch(16.5% 0.04 264)' : 'oklch(14.5% 0.04 264)', 
                 boxShadow: rpcSharing 
-                    ? '0 10px 30px rgba(0,0,0,0.5)' 
-                    : '0 10px 30px rgba(0,0,0,0.4)',
+                    ? '0 10px 30px oklch(0% 0 0 / 0.5)' 
+                    : '0 10px 30px oklch(0% 0 0 / 0.4)',
                 transition: 'all 0.3s ease'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -209,15 +209,15 @@ function App() {
                                 padding: '6px 12px',
                                 borderRadius: '20px',
                                 background: rpcSharing 
-                                    ? 'rgba(34, 197, 94, 0.15)' 
+                                    ? 'oklch(77.5% 0.19 145 / 0.15)' 
                                     : rpcStatus.connected 
-                                        ? 'rgba(239, 68, 68, 0.15)' 
-                                        : 'rgba(107, 114, 128, 0.15)',
+                                        ? 'oklch(62.5% 0.19 29 / 0.15)' 
+                                        : 'oklch(56.5% 0.04 264 / 0.15)',
                                 border: `1px solid ${rpcSharing 
-                                    ? 'rgba(34, 197, 94, 0.3)' 
+                                    ? 'oklch(77.5% 0.19 145 / 0.3)' 
                                     : rpcStatus.connected 
-                                        ? 'rgba(239, 68, 68, 0.3)' 
-                                        : 'rgba(107, 114, 128, 0.3)'}`,
+                                        ? 'oklch(62.5% 0.19 29 / 0.3)' 
+                                        : 'oklch(56.5% 0.04 264 / 0.3)'}`,
                                 fontSize: 12,
                                 fontWeight: 500,
                                 cursor: rpcStatus.connected ? 'pointer' : 'default',
@@ -242,12 +242,12 @@ function App() {
                                 height: 6,
                                 borderRadius: '50%',
                                 backgroundColor: rpcSharing 
-                                    ? '#22c55e' 
+                                    ? 'oklch(77.5% 0.19 145)' 
                                     : rpcStatus.connected 
-                                        ? '#ef4444' 
-                                        : '#6b7280'
+                                        ? 'oklch(62.5% 0.19 29)' 
+                                        : 'oklch(56.5% 0.04 264)'
                             }} />
-                            <span style={{ color: rpcSharing ? '#22c55e' : rpcStatus.connected ? '#ef4444' : '#9ca3af' }}>
+                            <span style={{ color: rpcSharing ? 'oklch(77.5% 0.19 145)' : rpcStatus.connected ? 'oklch(62.5% 0.19 29)' : 'oklch(80% 0.04 264)' }}>
                                 {rpcSharing ? '활동 상태 공유 중' : rpcStatus.connected ? '활동 상태 공유 안 함' : 'Discord와 연결되지 않음'}
                             </span>
                         </div>
@@ -263,11 +263,11 @@ function App() {
                     <div style={{
                         marginTop: 20,
                         padding: 16,
-                        background: '#1f2937',
+                        background: 'oklch(25.5% 0.04 264)',
                         borderRadius: 12,
-                        border: '1px solid #374151'
+                        border: '1px solid oklch(36.5% 0.04 264)'
                     }}>
-                        <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: '#7eb3f7' }}>
+                        <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: 'oklch(78.5% 0.19 255)' }}>
                             현재 감지된 창
                         </h3>
                         <div style={{ fontSize: 14 }}>
@@ -296,7 +296,7 @@ function App() {
                     }}
                     onMouseEnter={(e) => {
                         if (!loading) {
-                            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                            e.currentTarget.style.backgroundColor = 'oklch(100% 0 0 / 0.05)';
                         }
                     }}
                     onMouseLeave={(e) => {
@@ -323,7 +323,7 @@ function App() {
                         }}
                         onMouseEnter={(e) => {
                             if (!loading) {
-                                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                                e.currentTarget.style.backgroundColor = 'oklch(100% 0 0 / 0.05)';
                             }
                         }}
                         onMouseLeave={(e) => {
@@ -348,9 +348,9 @@ function App() {
                     <div style={{
                         marginTop: 16,
                         padding: 12,
-                        background: rpcStatus.connected ? '#1e3a2a' : '#3a1e1e',
+                        background: rpcStatus.connected ? 'oklch(24% 0.13 145)' : 'oklch(24% 0.13 29)',
                         borderRadius: 8,
-                        border: `1px solid ${rpcStatus.connected ? '#22c55e' : '#ef4444'}`
+                        border: `1px solid ${rpcStatus.connected ? 'oklch(77.5% 0.19 145)' : 'oklch(62.5% 0.19 29)'}`
                     }}>
                         <div style={{
                             display: 'flex',
@@ -362,7 +362,7 @@ function App() {
                                 width: 8,
                                 height: 8,
                                 borderRadius: '50%',
-                                backgroundColor: rpcStatus.connected ? '#22c55e' : '#ef4444'
+                                backgroundColor: rpcStatus.connected ? 'oklch(77.5% 0.19 145)' : 'oklch(62.5% 0.19 29)'
                             }} />
                             <span>
                                 {rpcStatus.connected ? 'Discord와 연결되었습니다.' : 'Discord와 연결되지 않았습니다. Discord가 켜져 있고, 활동 설정이 올바른지 확인하세요.'}
