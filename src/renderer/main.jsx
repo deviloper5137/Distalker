@@ -2,6 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 
+// 색상 상수 선언 (OKLCH)
+const COLOR_PRIMARY = 'oklch(78.5% 0.19 255)';
+const COLOR_BG = 'oklch(0% 0 0)';
+const COLOR_BG_CARD = 'oklch(14.5% 0.04 264)';
+const COLOR_BG_CARD_ACTIVE = 'oklch(16.5% 0.04 264)';
+const COLOR_BG_WINDOW = 'oklch(25.5% 0.04 264)';
+const COLOR_BORDER = 'oklch(36.5% 0.04 264)';
+const COLOR_TEXT = 'oklch(93.5% 0.03 240)';
+const COLOR_TEXT_SUB = 'oklch(80% 0.04 264)';
+const COLOR_WHITE = 'oklch(100% 0 0)';
+const COLOR_GREEN = 'oklch(77.5% 0.19 145)';
+const COLOR_RED = 'oklch(62.5% 0.19 29)';
+const COLOR_GREEN_BG = 'oklch(24% 0.13 145)';
+const COLOR_RED_BG = 'oklch(24% 0.13 29)';
+
 function App() {
     const [startupEnabled, setStartupEnabled] = useState(false);
     const [startupMinimized, setStartupMinimized] = useState(true);
@@ -116,7 +131,7 @@ function App() {
                     position: 'relative',
                     width: 44,
                     height: 24,
-                    backgroundColor: checked ? 'oklch(78.5% 0.19 255)' : 'oklch(36.5% 0.04 264)',
+                    backgroundColor: checked ? COLOR_PRIMARY : COLOR_BORDER,
                     borderRadius: 12,
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     marginRight: 8,
@@ -124,9 +139,9 @@ function App() {
                     opacity: disabled ? 0.6 : 1,
                     transform: 'scale(1)',
                     boxShadow: checked 
-                        ? '0 0 0 4px oklch(78.5% 0.19 255 / 0.1)' 
-                        : '0 0 0 0px oklch(36.5% 0.04 264 / 0.1)',
-                    border: '1px solid transparent'
+                        ? `0 0 0 4px ${COLOR_PRIMARY.replace(')', ' / 0.1)')}` 
+                        : `0 0 0 0px ${COLOR_BORDER.replace(')', ' / 0.1)')}`,
+                    border: `1px solid transparent`
                 }}
                 onClick={disabled ? undefined : onChange}
                 onMouseDown={(e) => {
@@ -151,14 +166,14 @@ function App() {
                     left: 2,
                     width: 18,
                     height: 18,
-                    backgroundColor: 'oklch(100% 0 0)',
+                    backgroundColor: COLOR_WHITE,
                     borderRadius: '50%',
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     boxShadow: checked 
-                        ? '0 2px 8px oklch(78.5% 0.19 255 / 0.3), 0 1px 3px oklch(0% 0 0 / 0.2)' 
-                        : '0 2px 4px oklch(0% 0 0 / 0.2)',
+                        ? `0 2px 8px ${COLOR_PRIMARY.replace(')', ' / 0.3)')}, 0 1px 3px ${COLOR_BG.replace(')', ' / 0.2)')}` 
+                        : `0 2px 4px ${COLOR_BG.replace(')', ' / 0.2)')}`,
                     transform: checked ? 'translateX(20px) scale(1.05)' : 'translateX(0px) scale(1)',
-                    border: '1px solid oklch(100% 0 0 / 0.2)'
+                    border: `1px solid ${COLOR_WHITE.replace(')', ' / 0.2)')}`
                 }} />
             </div>
         );
@@ -177,26 +192,25 @@ function App() {
     return (
         <div style={{
             fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
-            background: rpcSharing ? 'oklch(0% 0 0)' : 'oklch(0% 0 0)', 
-            color: 'oklch(93.5% 0.03 240)',
+            background: COLOR_BG, 
+            color: COLOR_TEXT,
             minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
             position: 'relative', overflow: 'hidden',
             transition: 'background-color 0.3s ease'
         }}>
             <div style={{
                 position: 'absolute', inset: 0, pointerEvents: 'none',
-                background: 'radial-gradient(60% 40% at 50% 110%,oklch(92% 0.05 250 / 0.47) 0%, oklch(92% 0.05 250 / 0.5), oklch(70% 0.05 250 / 0.1) 55%, oklch(0% 0 0 / 0.0) 75%)',
+                background: `radial-gradient(60% 40% at 50% 110%,oklch(92% 0.05 250 / 0.47) 0%, oklch(92% 0.05 250 / 0.5), oklch(70% 0.05 250 / 0.1) 55%, ${COLOR_BG.replace(')', ' / 0.0)')} 75%)`,
                 filter: rpcSharing ? 'blur(26px)' : 'blur(18px)',
                 opacity: rpcSharing ? 1.2 : 1,
                 transition: 'opacity 0.3s ease, filter 0.3s ease'
             }}></div>
             <div style={{ 
                 width: 560, padding: 24, borderRadius: 16, 
-                background: rpcSharing ? 'oklch(16.5% 0.04 264)' : 'oklch(14.5% 0.04 264)', 
+                background: rpcSharing ? COLOR_BG_CARD_ACTIVE : COLOR_BG_CARD, 
                 boxShadow: rpcSharing 
-                    ? '0 10px 30px oklch(0% 0 0 / 0.5)' 
-                    : '0 10px 30px oklch(0% 0 0 / 0.4)',
-                transition: 'all 0.3s ease'
+                    ? `0 10px 30px ${COLOR_BG.replace(')', ' / 0.5)')}` 
+                    : `0 10px 30px ${COLOR_BG.replace(')', ' / 0.4)')}`
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <h1 style={{ margin: 0, fontSize: 28 }}>Distalker</h1>
@@ -209,15 +223,15 @@ function App() {
                                 padding: '6px 12px',
                                 borderRadius: '20px',
                                 background: rpcSharing 
-                                    ? 'oklch(77.5% 0.19 145 / 0.15)' 
+                                    ? COLOR_GREEN.replace(')', ' / 0.15)') 
                                     : rpcStatus.connected 
-                                        ? 'oklch(62.5% 0.19 29 / 0.15)' 
-                                        : 'oklch(56.5% 0.04 264 / 0.15)',
+                                        ? COLOR_RED.replace(')', ' / 0.15)') 
+                                        : COLOR_BORDER.replace(')', ' / 0.15)'),
                                 border: `1px solid ${rpcSharing 
-                                    ? 'oklch(77.5% 0.19 145 / 0.3)' 
+                                    ? COLOR_GREEN.replace(')', ' / 0.3)') 
                                     : rpcStatus.connected 
-                                        ? 'oklch(62.5% 0.19 29 / 0.3)' 
-                                        : 'oklch(56.5% 0.04 264 / 0.3)'}`,
+                                        ? COLOR_RED.replace(')', ' / 0.3)') 
+                                        : COLOR_BORDER.replace(')', ' / 0.3)')}`,
                                 fontSize: 12,
                                 fontWeight: 500,
                                 cursor: rpcStatus.connected ? 'pointer' : 'default',
@@ -242,12 +256,12 @@ function App() {
                                 height: 6,
                                 borderRadius: '50%',
                                 backgroundColor: rpcSharing 
-                                    ? 'oklch(77.5% 0.19 145)' 
+                                    ? COLOR_GREEN 
                                     : rpcStatus.connected 
-                                        ? 'oklch(62.5% 0.19 29)' 
-                                        : 'oklch(56.5% 0.04 264)'
+                                        ? COLOR_RED 
+                                        : COLOR_BORDER
                             }} />
-                            <span style={{ color: rpcSharing ? 'oklch(77.5% 0.19 145)' : rpcStatus.connected ? 'oklch(62.5% 0.19 29)' : 'oklch(80% 0.04 264)' }}>
+                            <span style={{ color: rpcSharing ? COLOR_GREEN : rpcStatus.connected ? COLOR_RED : COLOR_TEXT_SUB }}>
                                 {rpcSharing ? '활동 상태 공유 중' : rpcStatus.connected ? '활동 상태 공유 안 함' : 'Discord와 연결되지 않음'}
                             </span>
                         </div>
@@ -263,11 +277,11 @@ function App() {
                     <div style={{
                         marginTop: 20,
                         padding: 16,
-                        background: 'oklch(25.5% 0.04 264)',
+                        background: COLOR_BG_WINDOW,
                         borderRadius: 12,
-                        border: '1px solid oklch(36.5% 0.04 264)'
+                        border: `1px solid ${COLOR_BORDER}`
                     }}>
-                        <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: 'oklch(78.5% 0.19 255)' }}>
+                        <h3 style={{ margin: '0 0 12px 0', fontSize: 16, color: COLOR_PRIMARY }}>
                             현재 감지된 창
                         </h3>
                         <div style={{ fontSize: 14 }}>
@@ -296,7 +310,7 @@ function App() {
                     }}
                     onMouseEnter={(e) => {
                         if (!loading) {
-                            e.currentTarget.style.backgroundColor = 'oklch(100% 0 0 / 0.05)';
+                            e.currentTarget.style.backgroundColor = COLOR_WHITE.replace(')', ' / 0.05)');
                         }
                     }}
                     onMouseLeave={(e) => {
@@ -348,9 +362,9 @@ function App() {
                     <div style={{
                         marginTop: 16,
                         padding: 12,
-                        background: rpcStatus.connected ? 'oklch(24% 0.13 145)' : 'oklch(24% 0.13 29)',
+                        background: rpcStatus.connected ? COLOR_GREEN_BG : COLOR_RED_BG,
                         borderRadius: 8,
-                        border: `1px solid ${rpcStatus.connected ? 'oklch(77.5% 0.19 145)' : 'oklch(62.5% 0.19 29)'}`
+                        border: `1px solid ${rpcStatus.connected ? COLOR_GREEN : COLOR_RED}`
                     }}>
                         <div style={{
                             display: 'flex',
@@ -362,7 +376,7 @@ function App() {
                                 width: 8,
                                 height: 8,
                                 borderRadius: '50%',
-                                backgroundColor: rpcStatus.connected ? 'oklch(77.5% 0.19 145)' : 'oklch(62.5% 0.19 29)'
+                                backgroundColor: rpcStatus.connected ? COLOR_GREEN : COLOR_RED
                             }} />
                             <span>
                                 {rpcStatus.connected ? 'Discord와 연결되었습니다.' : 'Discord와 연결되지 않았습니다. Discord가 켜져 있고, 활동 설정이 올바른지 확인하세요.'}
