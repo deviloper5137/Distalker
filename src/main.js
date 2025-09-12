@@ -69,8 +69,9 @@ function initializeStatusManager() {
     }
 
     statusManager = createStatusManager({
-        idleThresholdMs: 600000, // 10분
-        checkIntervalMs: 5000, // 5초마다 체크
+        // 디버그: 10초 후 자리비움으로 전환, 1초 간격 체크
+        idleThresholdMs: 6000000,
+        checkIntervalMs: 1500,
         logger: logger,
         onStatusChange: async (statusData) => {
             // 상태 변경 시 RPC 업데이트 (startTimestamp는 유지)
@@ -657,11 +658,11 @@ async function startUp() {
 
                 if (info?.error) {
                     await updateRpcActivityWithUserStatus({
-                        details: "❌ 활동 상태를 불러올 수 없습니다.",
+                        details: "활동 상태를 불러올 수 없습니다.",
                         state: info.message,
                         smallImageKey: 'error',
                         ...defaultActivity
-                    }, false, false); // 사용자 상태 사용하지 않음, 타임스탬프 유지
+                    }, false, true); // 사용자 상태 사용하지 않음
 
                     logger.info('활동 상태를 불러올 수 없어 Discord에 이를 표시했습니다.');
 
@@ -679,7 +680,7 @@ async function startUp() {
                         logger.info(`활동 상태 업데이트: ${details}`);
                     } else if (rpcClient?.setActivity && !rpcEnabled && rpcClient.isConnected()) {
                         await updateRpcActivityWithUserStatus({
-                            details: "❗ 사용자가 활동 상태 공유를 중단했습니다.",
+                            details: "사용자가 활동 상태 공유를 중단했습니다.",
                             state: "사용자가 자신의 활동 상태를 공유하지 않도록 설정했습니다.",
                             smallImageKey: 'warning',
                             ...defaultActivity

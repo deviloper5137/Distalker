@@ -12,7 +12,7 @@ export class StatusManager extends EventEmitter {
         // 설정 옵션
         this.idleThresholdMs = options.idleThresholdMs || 600000; // 기본 10분
         this.checkIntervalMs = options.checkIntervalMs || 5000; // 기본 5초마다 체크
-        this.currentStatus = 'online';
+        this.currentStatus = 'idle';
         this.checkTimer = null;
         this.isRunning = false;
         
@@ -23,6 +23,29 @@ export class StatusManager extends EventEmitter {
         this.logger = options.logger || console;
         
         this.logger.debug(`StatusManager 초기화: idleThreshold=${this.idleThresholdMs}ms, checkInterval=${this.checkIntervalMs}ms`);
+
+        // 시스템 이벤트 훅 (잠금/해제, 절전/복귀 등)
+        try {
+            powerMonitor.on('lock-screen', () => {
+                this.logger.debug('시스템 잠금 감지 → idle 처리');
+                this.forceStatusUpdate('idle');
+            });
+            powerMonitor.on('unlock-screen', () => {
+                this.logger.debug('시스템 잠금 해제 감지 → 상태 재평가');
+                // 즉시 재평가하여 상태 반영
+                this.checkStatus();
+            });
+            powerMonitor.on('suspend', () => {
+                this.logger.debug('시스템 절전 감지 → idle 처리');
+                this.forceStatusUpdate('idle');
+            });
+            powerMonitor.on('resume', () => {
+                this.logger.debug('시스템 절전 해제 감지 → 상태 재평가');
+                this.checkStatus();
+            });
+        } catch (_) {
+            // 일부 플랫폼/환경에서 이벤트가 없을 수 있음
+        }
     }
 
     /**
@@ -30,8 +53,26 @@ export class StatusManager extends EventEmitter {
      * @returns {string} 'online' 또는 'idle'
      */
     getCurrentStatus() {
-        const idleTimeMs = powerMonitor.getSystemIdleTime() * 1000;
-        return idleTimeMs >= this.idleThresholdMs ? 'idle' : 'online';
+        // 신형 API 우선 사용 (Wayland 등에서 더 안정적)
+        try {
+            if (typeof powerMonitor.getSystemIdleState === 'function') {
+                const state = powerMonitor.getSystemIdleState(Math.round(this.idleThresholdMs / 1000));
+                return (state === 'idle' || state === 'locked') ? 'idle' : 'online';
+            }
+        } catch (_) {
+            // 구형 API로 폴백
+        }
+
+        // 구형 API 폴백
+        try {
+            if (typeof powerMonitor.getSystemIdleTime === 'function') {
+                const idleTimeMs = powerMonitor.getSystemIdleTime() * 1000;
+                return idleTimeMs >= this.idleThresholdMs ? 'idle' : 'online';
+            }
+        } catch (_) {}
+
+        // 어떤 API도 사용할 수 없는 경우 온라인으로 간주
+        return 'online';
     }
 
     /**
@@ -103,7 +144,14 @@ export class StatusManager extends EventEmitter {
             status: newStatus,
             previousStatus,
             timestamp: new Date().toISOString(),
-            idleTimeMs: powerMonitor.getSystemIdleTime() * 1000
+            idleTimeMs: (() => {
+                try {
+                    if (typeof powerMonitor.getSystemIdleTime === 'function') {
+                        return powerMonitor.getSystemIdleTime() * 1000;
+                    }
+                } catch (_) {}
+                return null;
+            })()
         };
 
         // 이벤트 발생
