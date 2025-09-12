@@ -11,6 +11,14 @@ contextBridge.exposeInMainWorld('distalker', {
     onRpcStatus: (callback) => ipcRenderer.on('rpc-status', callback),
     toggleRpcActivity: () => ipcRenderer.invoke('app:toggle-rpc-activity'),
     onSettingsChanged: (callback) => ipcRenderer.on('settings-changed', callback),
+    
+    // 사용자 상태 관련 메서드
+    getUserStatus: () => ipcRenderer.invoke('app:get-user-status'),
+    getStatusManagerSettings: () => ipcRenderer.invoke('app:get-status-manager-settings'),
+    updateStatusManagerSettings: (settings) => ipcRenderer.invoke('app:update-status-manager-settings', settings),
+    forceStatusUpdate: (status) => ipcRenderer.invoke('app:force-status-update', status),
+    onUserStatusChanged: (callback) => ipcRenderer.on('user-status-changed', callback),
+    
     platform: process.platform
 });
 

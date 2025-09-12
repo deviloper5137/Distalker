@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import { createRpcClient } from './rpc.js';
 import { startActiveWindowWatcher } from './watcher.js';
 import { createLogger, loggerConfig } from './logger.js';
+import { createStatusManager } from './statusManager.js';
 
 // __dirname, __filename 설정
 const __filename = fileURLToPath(import.meta.url);
@@ -47,12 +48,122 @@ let minimizeToTray = true;
 let currentWindowInfo = null;
 let startupMinimized = true; // 시작 시 트레이로 최소화 설정
 let rpcEnabled = true; // RPC 활동 상태 공유 활성화 상태
+let statusManager = null; // 사용자 상태 관리자
+let currentActivityStartTime = null; // 현재 활동의 시작 시간 (앱 변경 시에만 업데이트)
 
 const defaultActivity = {
     largeImageKey: 'app',
     largeImageText: 'Distalker',
     instance: true
 };
+
+// getUserIdleStatus 함수는 이제 StatusManager에서 처리됨
+
+/**
+ * StatusManager 초기화 및 설정
+ */
+function initializeStatusManager() {
+    if (statusManager) {
+        logger.debug('StatusManager가 이미 초기화되었습니다.');
+        return statusManager;
+    }
+
+    statusManager = createStatusManager({
+        idleThresholdMs: 600000, // 10분
+        checkIntervalMs: 5000, // 5초마다 체크
+        logger: logger,
+        onStatusChange: async (statusData) => {
+            // 상태 변경 시 RPC 업데이트 (startTimestamp는 유지)
+            if (rpcClient && rpcEnabled && rpcClient.isConnected()) {
+                try {
+                    const imageKey = statusManager.getStatusImageKey(statusData.status);
+                    const statusText = statusManager.getStatusText(statusData.status);
+                    
+                    if (currentWindowInfo) {
+                        const details = currentWindowInfo.title || 'Untitled';
+                        const state = currentWindowInfo.app ? `by ${currentWindowInfo.app}` : undefined;
+                        
+                        const activityData = {
+                            details,
+                            state,
+                            smallImageKey: imageKey,
+                            smallImageText: statusText,
+                            ...defaultActivity
+                        };
+                        
+                        // startTimestamp는 기존 값을 유지 (앱 변경 시에만 새로 설정)
+                        if (currentActivityStartTime) {
+                            activityData.startTimestamp = currentActivityStartTime;
+                        }
+                        
+                        await rpcClient.setActivity(activityData);
+                        
+                        logger.info(`사용자 상태 변경으로 인한 RPC 업데이트: ${statusText} (${imageKey}) - 타임스탬프 유지`);
+                    }
+                } catch (error) {
+                    logger.warn(`상태 변경 시 RPC 업데이트 실패: ${error.message}`);
+                }
+            }
+
+            // 렌더러에 상태 변경 알림
+            if (mainWindow) {
+                mainWindow.webContents.send('user-status-changed', statusData);
+            }
+        }
+    });
+
+    logger.info('StatusManager 초기화 완료');
+    return statusManager;
+}
+
+/**
+ * RPC 활동 상태를 사용자 상태와 함께 업데이트
+ * @param {Object} activityData - RPC 활동 데이터
+ * @param {boolean} useUserStatus - 사용자 상태를 포함할지 여부
+ * @param {boolean} updateTimestamp - startTimestamp를 새로 설정할지 여부 (앱 변경 시에만 true)
+ */
+async function updateRpcActivityWithUserStatus(activityData, useUserStatus = true, updateTimestamp = false) {
+    if (!rpcClient || !rpcEnabled || !rpcClient.isConnected()) {
+        return;
+    }
+
+    try {
+        const finalActivity = { ...activityData };
+        
+        if (useUserStatus && statusManager) {
+            const userStatus = statusManager.getCurrentStatus();
+            const imageKey = statusManager.getStatusImageKey(userStatus);
+            const statusText = statusManager.getStatusText(userStatus);
+            
+            finalActivity.smallImageKey = imageKey;
+            finalActivity.smallImageText = statusText;
+        }
+        
+        // startTimestamp 처리
+        if (updateTimestamp) {
+            // 앱 변경 시: 새로운 타임스탬프 설정
+            currentActivityStartTime = Date.now();
+            finalActivity.startTimestamp = currentActivityStartTime;
+            logger.debug('새로운 활동 시작 시간 설정');
+        } else if (currentActivityStartTime) {
+            // 사용자 상태 변경 시: 기존 타임스탬프 유지
+            finalActivity.startTimestamp = currentActivityStartTime;
+        }
+        
+        await rpcClient.setActivity(finalActivity);
+        
+        if (useUserStatus && statusManager) {
+            const userStatus = statusManager.getCurrentStatus();
+            const timestampAction = updateTimestamp ? '새로 설정' : '유지';
+            logger.info(`RPC 활동 업데이트 (사용자 상태: ${userStatus}, 타임스탬프: ${timestampAction}): ${finalActivity.details || '알 수 없음'}`);
+        } else {
+            const timestampAction = updateTimestamp ? '새로 설정' : '유지';
+            logger.info(`RPC 활동 업데이트 (타임스탬프: ${timestampAction}): ${finalActivity.details || '알 수 없음'}`);
+        }
+    } catch (error) {
+        logger.warn(`RPC 활동 업데이트 실패: ${error.message}`);
+    }
+}
 
 async function notify(title, body) {
     try {
@@ -152,12 +263,12 @@ async function toggleRpcActivity() {
 
     try {
         if (rpcEnabled) {
-            await rpcClient.setActivity({
+            await updateRpcActivityWithUserStatus({
                 details: "활동 상태 공유가 중단되었습니다.",
                 state: "사용자가 자신의 활동을 공유하지 않도록 설정했습니다.",
-                startTimestamp: Date.now(),
+                smallImageKey: 'warning',
                 ...defaultActivity
-            });
+            }, false, false); // 사용자 상태 사용하지 않음, 타임스탬프 유지
 
             rpcEnabled = false;
 
@@ -169,14 +280,13 @@ async function toggleRpcActivity() {
                 const details = currentWindowInfo.title || 'Untitled';
                 const state = currentWindowInfo.app ? `by ${currentWindowInfo.app}` : undefined;
                 
-                await rpcClient.setActivity({
-                    details,
-                    state,
-                    startTimestamp: Date.now(),
-                    ...defaultActivity
-                });
+            await updateRpcActivityWithUserStatus({
+                details,
+                state,
+                ...defaultActivity
+            }, true, true); // 사용자 상태 사용, 타임스탬프 새로 설정
 
-                logger.info(`사용자가 활동 상태 공유를 재개했습니다.`);
+            logger.info(`사용자가 활동 상태 공유를 재개했습니다.`);
                 notify('🔔 활동 상태 공유 재개', '활동 상태 공유를 활성화했습니다.');
             }
 
@@ -405,6 +515,35 @@ function setupIpc() {
         await toggleRpcActivity();
         return { enabled: rpcEnabled };
     });
+
+    // 사용자 상태 관련 IPC 핸들러
+    ipcMain.handle('app:get-user-status', () => {
+        return statusManager ? statusManager.getCurrentStatus() : 'online';
+    });
+
+    ipcMain.handle('app:get-status-manager-settings', () => {
+        return statusManager ? statusManager.getSettings() : null;
+    });
+
+    ipcMain.handle('app:update-status-manager-settings', (evt, settings) => {
+        if (statusManager) {
+            statusManager.updateSettings(settings);
+            return statusManager.getSettings();
+        }
+        return null;
+    });
+
+    ipcMain.handle('app:force-status-update', (evt, status) => {
+        if (statusManager) {
+            try {
+                statusManager.forceStatusUpdate(status);
+                return { success: true, currentStatus: statusManager.getCurrentStatus() };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+        return { success: false, error: 'StatusManager가 초기화되지 않았습니다.' };
+    });
 }
 
 async function startUp() {
@@ -443,6 +582,12 @@ async function startUp() {
 
     setupIpc();
     await createWindow();
+    
+    // StatusManager 초기화 및 시작
+    initializeStatusManager();
+    if (statusManager) {
+        statusManager.start();
+    }
     
     // 시작 시 트레이 최소화가 활성화된 경우 창을 렌더링하지 않음
     if (!startupMinimized) {
@@ -511,12 +656,12 @@ async function startUp() {
                 }
 
                 if (info?.error) {
-                    await rpcClient.setActivity({
+                    await updateRpcActivityWithUserStatus({
                         details: "❌ 활동 상태를 불러올 수 없습니다.",
                         state: info.message,
-                        startTimestamp: Date.now(),
+                        smallImageKey: 'error',
                         ...defaultActivity
-                    });
+                    }, false, false); // 사용자 상태 사용하지 않음, 타임스탬프 유지
 
                     logger.info('활동 상태를 불러올 수 없어 Discord에 이를 표시했습니다.');
 
@@ -525,20 +670,20 @@ async function startUp() {
 
                 try {
                     if (rpcClient?.setActivity && rpcEnabled && rpcClient.isConnected()) {
-                        await rpcClient.setActivity({
+                        await updateRpcActivityWithUserStatus({
                             details,
                             state,
-                            startTimestamp: Date.now(),
                             ...defaultActivity
-                        });
+                        }, true, true); // 사용자 상태 사용, 타임스탬프 새로 설정 (앱 변경)
 
                         logger.info(`활동 상태 업데이트: ${details}`);
                     } else if (rpcClient?.setActivity && !rpcEnabled && rpcClient.isConnected()) {
-                        await rpcClient.setActivity({
+                        await updateRpcActivityWithUserStatus({
                             details: "❗ 사용자가 활동 상태 공유를 중단했습니다.",
                             state: "사용자가 자신의 활동 상태를 공유하지 않도록 설정했습니다.",
+                            smallImageKey: 'warning',
                             ...defaultActivity
-                        });
+                        }, false, false); // 사용자 상태 사용하지 않음, 타임스탬프 유지
 
                         logger.debug('활동 상태가 비활성화 상태로 클리어되었습니다.');
                     } else if (!rpcClient?.isConnected()) {
@@ -562,6 +707,14 @@ async function startUp() {
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+    // StatusManager 정리
+    if (statusManager) {
+        statusManager.stop();
+        logger.info('StatusManager 정리 완료');
+    }
 });
 
 startUp().catch((err) => {
