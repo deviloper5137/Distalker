@@ -28,6 +28,7 @@ if (app.isPackaged) {
     loggerConfig.setConsoleLogging(true);
     loggerConfig.setFileLogging(true);
     loggerConfig.setMaxLogLines(500);
+    loggerConfig.setLogFolder(path.join(app.getPath('userData'), 'logs'));
 } else {
     // 개발 빌드: 최대 10개 파일, 모든 레벨 파일에 저장, 콘솔도 모든 레벨, 파일당 1000줄
     loggerConfig.setMaxLogFiles(10);
