@@ -1,6 +1,6 @@
 {
   "name": "Distalker",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "게임뿐만이 아닌 더 많은 활동을 Discord에서 사람들과 공유해보세요.",
   "type": "module",
   "main": "src/main.js",
