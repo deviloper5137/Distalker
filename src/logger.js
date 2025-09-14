@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { fileURLToPath } from 'node:url';
 import path from 'path';
+import { app } from 'electron';
 
 // 레벨별 정보 딕셔너리
 export const logLevels = {
@@ -20,17 +21,10 @@ class LoggerConfig {
     constructor(config = {}) {
         // Electron 환경 감지 및 로그 폴더 경로 결정
         let logFolder;
-        try {
-            // electron이 로드된 경우 app, process.resourcesPath 사용
-            const electron = require('electron');
-            const app = electron.app || (electron.remote && electron.remote.app);
-            if (app && app.isPackaged) {
-                logFolder = path.join(app.getPath('userData'), 'logs');
-            } else {
-                logFolder = path.join(__dirname, '..', 'logs');
-            }
-        } catch (e) {
-            // electron이 없으면 개발 환경으로 처리
+
+        if (app.isPackaged) {
+            logFolder = path.join(app.getPath('userData'), 'logs');
+        } else {
             logFolder = path.join(__dirname, '..', 'logs');
         }
 
