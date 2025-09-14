@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { fileURLToPath } from 'node:url';
 import path from 'path';
 
 // 레벨별 정보 딕셔너리
@@ -11,42 +12,48 @@ export const logLevels = {
 };
 
 const resetColor = '\x1b[0m';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 전역 로거 설정 관리
 class LoggerConfig {
-    constructor() {
+    constructor(config = {}) {
+        // Electron 환경 감지 및 로그 폴더 경로 결정
+        let logFolder;
+        try {
+            // electron이 로드된 경우 app, process.resourcesPath 사용
+            const electron = require('electron');
+            const app = electron.app || (electron.remote && electron.remote.app);
+            if (app && app.isPackaged) {
+                logFolder = path.join(app.getPath('userData'), 'logs');
+            } else {
+                logFolder = path.join(__dirname, '..', 'logs');
+            }
+        } catch (e) {
+            // electron이 없으면 개발 환경으로 처리
+            logFolder = path.join(__dirname, '..', 'logs');
+        }
+
         this.defaultLevel = 'INFO';
-        this.logFolder = './logs';
+        this.logFolder = logFolder;
         this.enableFileLogging = true;
         this.enableConsoleLogging = true;
         this.maxLogFiles = 10;
-        this.fileLogLevel = 'INFO'; // 파일에 저장할 최소 로그 레벨
-        this.enableLogRotation = true; // 로그 파일 로테이션 활성화
-        this.maxLogLines = 1000; // 로그 파일당 최대 줄 수
-        this.ensureLogDirectory();
+        this.fileLogLevel = 'INFO';
+        this.enableLogRotation = true;
+        this.maxLogLines = 1000;
+        // 객체 기반 초기화
+        this.setConfig(config);
     }
-    
-    // 전역 설정 변경
-    setConfig(config) {
+
+    // 객체 기반 설정 변경 및 적용
+    setConfig(config = {}) {
         Object.assign(this, config);
         if (config.logFolder) {
+            this.logFolder = config.logFolder;
             this.ensureLogDirectory();
         }
     }
-    
-    // 특정 설정 변경
-    setLogFolder(folder) { 
-        this.logFolder = folder; 
-        this.ensureLogDirectory();
-    }
-    
-    setDefaultLevel(level) { this.defaultLevel = level; }
-    setFileLogging(enabled) { this.enableFileLogging = enabled; }
-    setConsoleLogging(enabled) { this.enableConsoleLogging = enabled; }
-    setFileLogLevel(level) { this.fileLogLevel = level; }
-    setLogRotation(enabled) { this.enableLogRotation = enabled; }
-    setMaxLogFiles(maxFiles) { this.maxLogFiles = maxFiles; }
-    setMaxLogLines(maxLines) { this.maxLogLines = maxLines; }
     
     // 로그 디렉토리 생성
     ensureLogDirectory() {
@@ -119,12 +126,15 @@ class LogManager {
 
     constructor() {
         const logFileName = getLogFileName();
+        // loggerConfig.logFolder가 ASAR 외부 경로임을 보장
         this.#logFilePath = path.join(loggerConfig.logFolder, logFileName);
+
+        // 로그 폴더가 없으면 생성
+        loggerConfig.ensureLogDirectory();
 
         if (loggerConfig.enableFileLogging && !fs.existsSync(this.#logFilePath)) {
             fs.writeFileSync(this.#logFilePath, '', { flag: 'w' });
         }
-        
         // 로그 파일 로테이션 수행
         loggerConfig.rotateLogFiles();
     }

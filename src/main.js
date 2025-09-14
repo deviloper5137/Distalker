@@ -16,28 +16,33 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 프로젝트 루트 폴더 설정 (빌드: resourcesPath, 개발: 프로젝트 루트)
-let rootFolder = app.isPackaged ? process.resourcesPath : path.resolve(__dirname, '..');
+const rootFolder = app.isPackaged ? process.resourcesPath : path.resolve(__dirname, '..');
+const logFolder = app.isPackaged ? path.join(app.getPath('userData'), 'logs') : path.resolve(__dirname, '..', 'logs');
+console.log(logFolder);
 
-// 빌드 환경에 따른 로그 설정 적용
+// 빌드 환경에 따른 로그 설정 객체 생성 및 적용
 if (app.isPackaged) {
-    // 제품 빌드: 최대 5개 파일, WARN 이상만 파일에 저장, 콘솔은 INFO 이상, 파일당 500줄
-    loggerConfig.setMaxLogFiles(5);
-    loggerConfig.setFileLogLevel('WARN');
-    loggerConfig.setLogRotation(true);
-    loggerConfig.setDefaultLevel('INFO');
-    loggerConfig.setConsoleLogging(true);
-    loggerConfig.setFileLogging(true);
-    loggerConfig.setMaxLogLines(500);
-    loggerConfig.setLogFolder(path.join(app.getPath('userData'), 'logs'));
+    loggerConfig.setConfig({
+        logFolder,
+        maxLogFiles: 5,
+        fileLogLevel: 'WARN',
+        enableLogRotation: true,
+        defaultLevel: 'INFO',
+        enableConsoleLogging: true,
+        enableFileLogging: true,
+        maxLogLines: 500
+    });
 } else {
-    // 개발 빌드: 최대 10개 파일, 모든 레벨 파일에 저장, 콘솔도 모든 레벨, 파일당 1000줄
-    loggerConfig.setMaxLogFiles(10);
-    loggerConfig.setFileLogLevel('DEBUG');
-    loggerConfig.setLogRotation(true);
-    loggerConfig.setDefaultLevel('DEBUG');
-    loggerConfig.setConsoleLogging(true);
-    loggerConfig.setFileLogging(true);
-    loggerConfig.setMaxLogLines(1000);
+    loggerConfig.setConfig({
+        logFolder,
+        maxLogFiles: 10,
+        fileLogLevel: 'DEBUG',
+        enableLogRotation: true,
+        defaultLevel: 'DEBUG',
+        enableConsoleLogging: true,
+        enableFileLogging: true,
+        maxLogLines: 1000
+    });
 }
 
 // 로거 초기화 및 설정
@@ -51,6 +56,14 @@ let startupMinimized = true; // 시작 시 트레이로 최소화 설정
 let rpcEnabled = true; // RPC 활동 상태 공유 활성화 상태
 let statusManager = null; // 사용자 상태 관리자
 let currentActivityStartTime = null; // 현재 활동의 시작 시간 (앱 변경 시에만 업데이트)
+let userSettings = {
+    clientId: '',
+    idleTimeout: 10, // 분 단위
+    onlineImageKey: 'online',
+    idleImageKey: 'idle',
+    errorImageKey: 'error',
+    warningImageKey: 'warning'
+};
 
 const defaultActivity = {
     largeImageKey: 'app',
@@ -70,8 +83,8 @@ function initializeStatusManager() {
     }
 
     statusManager = createStatusManager({
-        // 디버그: 10초 후 자리비움으로 전환, 1초 간격 체크
-        idleThresholdMs: 6000000,
+        // 사용자 설정의 자리비움 타임아웃 사용 (분을 밀리초로 변환)
+        idleThresholdMs: (userSettings.idleTimeout || 10) * 60 * 1000,
         checkIntervalMs: 1500,
         logger: logger,
         onStatusChange: async (statusData) => {
@@ -204,6 +217,10 @@ function getSettingsPath() {
     return path.join(app.getPath('userData'), 'settings.json');
 }
 
+function getUserSettingsPath() {
+    return path.join(app.getPath('userData'), 'user-settings.json');
+}
+
 autoUpdater.on('checking-for-update', () => {
     logger.info('업데이트를 확인하는 중...');
 });
@@ -249,6 +266,32 @@ function loadSettings() {
     }
 }
 
+function loadUserSettings() {
+    try {
+        const userSettingsPath = getUserSettingsPath();
+        if (fs.existsSync(userSettingsPath)) {
+            const data = fs.readFileSync(userSettingsPath, 'utf8');
+            const settings = JSON.parse(data);
+            userSettings = { ...userSettings, ...settings };
+            // 전역에서 접근 가능하도록 설정
+            global.userSettings = userSettings;
+            logger.debug(`사용자 설정을 불러왔습니다: ${JSON.stringify(userSettings)}`);
+        }
+    } catch (error) {
+        logger.warn(`사용자 설정을 불러오는 중 오류가 발생했습니다: ${error.message}`);
+    }
+}
+
+function saveUserSettings() {
+    try {
+        const userSettingsPath = getUserSettingsPath();
+        fs.writeFileSync(userSettingsPath, JSON.stringify(userSettings, null, 2));
+        logger.debug(`사용자 설정을 저장했습니다: ${JSON.stringify(userSettings)}`);
+    } catch (error) {
+        logger.warn(`사용자 설정을 저장하는 중 오류가 발생했습니다: ${error.message}`);
+    }
+}
+
 function saveSettings() {
     try {
         const settingsPath = getSettingsPath();
@@ -268,7 +311,7 @@ async function toggleRpcActivity() {
             await updateRpcActivityWithUserStatus({
                 details: "활동 상태 공유가 중단되었습니다.",
                 state: "사용자가 자신의 활동을 공유하지 않도록 설정했습니다.",
-                smallImageKey: 'warning',
+                smallImageKey: userSettings.warningImageKey || 'warning',
                 ...defaultActivity
             }, false, false); // 사용자 상태 사용하지 않음, 타임스탬프 유지
 
@@ -339,6 +382,18 @@ function updateTrayMenu() {
             click: toggleRpcActivity,
             enabled: !!rpcClient
         },
+        { type: 'separator' },
+        { label: '로그 폴더 열기', click: () => { 
+            const logPath = app.isPackaged ? path.join(app.getPath('userData'), 'logs') : './logs'
+            shell.openPath(logPath).catch(err => {
+                logger.warn(`로그 폴더 열기 실패: ${err.message}`);
+                // 폴더가 없으면 생성 후 다시 시도
+                fs.mkdirSync(logPath, { recursive: true });
+                shell.openPath(logPath).catch(err2 => {
+                    logger.error(`로그 폴더 생성 후 열기 실패: ${err2.message}`);
+                });
+            });
+        }},
         { type: 'separator' },
         { label: '종료', click: () => { minimizeToTray = false; app.quit(); } }
     ]);
@@ -546,6 +601,27 @@ function setupIpc() {
         }
         return { success: false, error: 'StatusManager가 초기화되지 않았습니다.' };
     });
+
+    // 사용자 설정 관련 IPC 핸들러
+    ipcMain.handle('app:get-user-settings', () => {
+        return userSettings;
+    });
+
+    ipcMain.handle('app:save-user-settings', (evt, settings) => {
+        userSettings = { ...userSettings, ...settings };
+        // 전역에서 접근 가능하도록 설정
+        global.userSettings = userSettings;
+        saveUserSettings();
+        
+        // 클라이언트 ID가 변경된 경우 RPC 재초기화
+        if (settings.clientId && settings.clientId !== process.env.DISCORD_CLIENT_ID) {
+            logger.info('클라이언트 ID가 변경되어 RPC를 재초기화합니다.');
+            // RPC 재초기화는 앱 재시작 시 적용됨
+            notify('🔔 설정 변경', '클라이언트 ID가 변경되었습니다. 변경사항을 적용하려면 앱을 재시작하세요.');
+        }
+        
+        return userSettings;
+    });
 }
 
 async function startUp() {
@@ -557,6 +633,7 @@ async function startUp() {
     
     // 설정 로드
     loadSettings();
+    loadUserSettings();
     
     // resourcesPath 내 .env 우선 로드
     try {
@@ -598,11 +675,12 @@ async function startUp() {
         mainWindow.hide();
     }
 
-    const clientId = process.env.DISCORD_CLIENT_ID;
+    // 사용자 설정의 클라이언트 ID를 우선 사용, 없으면 환경변수 사용
+    const clientId = userSettings.clientId || process.env.DISCORD_CLIENT_ID;
 
     if (!clientId) {
-        logger.warn('DISCORD_CLIENT_ID 가 정의되지 않았습니다. 활동 상태 공유가 비활성화됩니다.');
-        notify('❗ DISCORD_CLIENT_ID 미설정', '활동 상태 공유가 비활성화됩니다.');
+        logger.warn('Discord 클라이언트 ID가 설정되지 않았습니다. 설정에서 클라이언트 ID를 입력하세요.');
+        notify('❗ Discord 클라이언트 ID 미설정', '설정에서 Discord 클라이언트 ID를 입력하세요.');
     } else {
         try {
             rpcClient = await createRpcClient(clientId, (title, body) => {
@@ -661,7 +739,7 @@ async function startUp() {
                     await updateRpcActivityWithUserStatus({
                         details: "활동 상태를 불러올 수 없습니다.",
                         state: info.message,
-                        smallImageKey: 'error',
+                        smallImageKey: userSettings.errorImageKey || 'error',
                         ...defaultActivity
                     }, false, true); // 사용자 상태 사용하지 않음
 
@@ -683,7 +761,7 @@ async function startUp() {
                         await updateRpcActivityWithUserStatus({
                             details: "사용자가 활동 상태 공유를 중단했습니다.",
                             state: "사용자가 자신의 활동 상태를 공유하지 않도록 설정했습니다.",
-                            smallImageKey: 'warning',
+                            smallImageKey: userSettings.warningImageKey || 'warning',
                             ...defaultActivity
                         }, false, false); // 사용자 상태 사용하지 않음, 타임스탬프 유지
 

@@ -19,6 +19,10 @@ contextBridge.exposeInMainWorld('distalker', {
     forceStatusUpdate: (status) => ipcRenderer.invoke('app:force-status-update', status),
     onUserStatusChanged: (callback) => ipcRenderer.on('user-status-changed', callback),
     
+    // 사용자 설정 관련 메서드
+    getUserSettings: () => ipcRenderer.invoke('app:get-user-settings'),
+    saveUserSettings: (settings) => ipcRenderer.invoke('app:save-user-settings', settings),
+    
     platform: process.platform
 });
 

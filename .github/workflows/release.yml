@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch: {}
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -20,6 +23,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+
+      - name: Resolve release tag name
+        id: meta
+        shell: bash
+        run: |
+          PKG_VER=$(node -p "require('./package.json').version")
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG_NAME="${{ github.ref_name }}"
+          else
+            TAG_NAME="v${PKG_VER}"
+          fi
+          echo "Resolved tag: $TAG_NAME"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Install system deps (AppImage helpers)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libarchive-tools rpm
 
       - name: Cache npm
         uses: actions/cache@v4
@@ -38,6 +59,13 @@ jobs:
       - name: Build AppImage
         run: npx electron-builder --linux AppImage
 
+      - name: List dist contents
+        run: |
+          echo "==== dist ===="
+          ls -lah dist || true
+          echo "==== dist subfolders ===="
+          find dist -maxdepth 2 -type f -printf '%p\n' || true
+
       - name: Find outputs
         id: find_linux
         shell: bash
@@ -55,13 +83,21 @@ jobs:
           fi
           echo "yml_path=dist/latest-linux.yml" >> $GITHUB_OUTPUT
 
+      - name: Upload build folder as artifact (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-linux-${{ github.ref_name }}
+          path: |
+            dist/**
+          if-no-files-found: error
+
       - name: Upload artifacts (actions/upload-release-asset)
         uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ steps.find_linux.outputs.appimage_path }}
             ${{ steps.find_linux.outputs.yml_path }}
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ steps.meta.outputs.tag_name }}
           draft: false
           prerelease: false
         env:
@@ -78,6 +114,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+
+      - name: Resolve release tag name
+        id: meta
+        shell: bash
+        run: |
+          PKG_VER=$(node -p "require('./package.json').version")
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG_NAME="${{ github.ref_name }}"
+          else
+            TAG_NAME="v${PKG_VER}"
+          fi
+          echo "Resolved tag: $TAG_NAME"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Cache npm
         uses: actions/cache@v4
@@ -96,6 +145,14 @@ jobs:
       - name: Build NSIS installer
         run: npx electron-builder --win nsis
 
+      - name: List dist contents
+        shell: bash
+        run: |
+          echo "==== dist ===="
+          ls -lah dist || true
+          echo "==== dist subfolders ===="
+          find dist -maxdepth 2 -type f -printf '%p\n' || true
+
       - name: Find outputs
         id: find_win
         shell: bash
@@ -113,13 +170,21 @@ jobs:
           fi
           echo "yml_path=dist/latest.yml" >> $GITHUB_OUTPUT
 
+      - name: Upload build folder as artifact (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows-${{ github.ref_name }}
+          path: |
+            dist/**
+          if-no-files-found: error
+
       - name: Upload artifacts (actions/upload-release-asset)
         uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ steps.find_win.outputs.exe_path }}
             ${{ steps.find_win.outputs.yml_path }}
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ steps.meta.outputs.tag_name }}
           draft: false
           prerelease: false
         env:

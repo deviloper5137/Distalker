@@ -175,6 +175,18 @@ export class StatusManager extends EventEmitter {
     getStatusImageKey(status = null) {
         const currentStatus = status || this.currentStatus;
         
+        // 사용자 설정의 이미지 키 사용 (전역에서 접근 가능하도록 설정)
+        if (typeof global !== 'undefined' && global.userSettings) {
+            switch (currentStatus) {
+                case 'idle':
+                    return global.userSettings.idleImageKey || 'idle';
+                case 'online':
+                default:
+                    return global.userSettings.onlineImageKey || 'online';
+            }
+        }
+        
+        // 기본값
         switch (currentStatus) {
             case 'idle':
                 return 'idle';

@@ -26,6 +26,18 @@ function App() {
     const [rpcStatus, setRpcStatus] = useState(null);
     const [rpcSharing, setRpcSharing] = useState(false);
     const [platform, setPlatform] = useState(window.distalker?.platform || 'unknown');
+    
+    // 설정 관련 상태
+    const [showSettings, setShowSettings] = useState(false);
+    const [settings, setSettings] = useState({
+        clientId: '',
+        idleTimeout: 10, // 분 단위
+        onlineImageKey: 'online',
+        idleImageKey: 'idle',
+        errorImageKey: 'error',
+        warningImageKey: 'warning'
+    });
+    const [settingsLoading, setSettingsLoading] = useState(false);
 
     useEffect(() => {
         (async () => {
@@ -34,11 +46,21 @@ function App() {
                 const minimized = await window.distalker.getStartupMinimized();
                 const windowInfo = await window.distalker.getCurrentWindow();
                 const rpcInfo = await window.distalker.getRpcStatus();
+                const userSettings = await window.distalker.getUserSettings();
                 
                 setStartupEnabled(!!enabled);
                 setStartupMinimized(!!minimized);
                 setCurrentWindow(windowInfo);
                 setRpcStatus(rpcInfo);
+                
+                // 사용자 설정 로드
+                if (userSettings) {
+                    setSettings(prev => ({
+                        ...prev,
+                        ...userSettings
+                    }));
+                }
+                
                 setLoading(false);
             } catch (error) {
                 console.error('초기화 오류:', error);
@@ -124,6 +146,32 @@ function App() {
         }
     }
 
+    async function saveSettings() {
+        if (settingsLoading) return;
+        setSettingsLoading(true);
+        try {
+            await window.distalker.saveUserSettings(settings);
+            // 설정 저장 후 자리비움 타임아웃이 변경된 경우 StatusManager 설정도 업데이트
+            if (settings.idleTimeout) {
+                await window.distalker.updateStatusManagerSettings({
+                    idleThresholdMs: settings.idleTimeout * 60 * 1000 // 분을 밀리초로 변환
+                });
+            }
+            setShowSettings(false);
+        } catch (error) {
+            console.error('설정 저장 오류:', error);
+        } finally {
+            setSettingsLoading(false);
+        }
+    }
+
+    function handleSettingChange(key, value) {
+        setSettings(prev => ({
+            ...prev,
+            [key]: value
+        }));
+    }
+
     function ToggleSwitch({ checked, onChange, disabled }) {
         return (
             <div 
@@ -189,6 +237,265 @@ function App() {
         });
     }
 
+    function SettingsModal() {
+        if (!showSettings) return null;
+
+        // ESC 키로 모달 닫기, Enter 키로 저장
+        React.useEffect(() => {
+            const handleKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    setShowSettings(false);
+                } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    saveSettings();
+                }
+            };
+
+            if (showSettings) {
+                document.addEventListener('keydown', handleKeyDown);
+                return () => document.removeEventListener('keydown', handleKeyDown);
+            }
+        }, [showSettings]);
+
+        return (
+            <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+            }}>
+                <div style={{
+                    backgroundColor: COLOR_BG_CARD,
+                    borderRadius: 16,
+                    padding: 24,
+                    width: 500,
+                    maxHeight: '80vh',
+                    overflowY: 'auto',
+                    border: `1px solid ${COLOR_BORDER}`
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: 20,
+                        boxSizing: 'border-box'
+                    }}>
+                        <h2 style={{ margin: 0, color: COLOR_PRIMARY }}>설정</h2>
+                        <button
+                            onClick={() => setShowSettings(false)}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: COLOR_TEXT_SUB,
+                                fontSize: 24,
+                                cursor: 'pointer',
+                                padding: 4,
+                                borderRadius: 4
+                            }}
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {/* Discord 클라이언트 ID */}
+                        <div>
+                            <label style={{
+                                display: 'block',
+                                marginBottom: 8,
+                                fontSize: 14,
+                                fontWeight: 500,
+                                color: COLOR_TEXT
+                            }}>
+                                Discord 클라이언트 ID
+                            </label>
+                            <input
+                                type="text"
+                                value={settings.clientId}
+                                onChange={(e) => handleSettingChange('clientId', e.target.value)}
+                                placeholder="Discord 애플리케이션 클라이언트 ID를 입력하세요"
+                                style={{
+                                    width: '100%',
+                                    padding: 12,
+                                    backgroundColor: COLOR_BG_WINDOW,
+                                    border: `1px solid ${COLOR_BORDER}`,
+                                    borderRadius: 8,
+                                    color: COLOR_TEXT,
+                                    fontSize: 14
+                                }}
+                            />
+                            <div style={{
+                                fontSize: 12,
+                                color: COLOR_TEXT_SUB,
+                                marginTop: 4,
+                                lineHeight: 1.4
+                            }}>
+                                Discord Developer Portal에서 생성한 애플리케이션의 클라이언트 ID입니다.
+                                <br />
+                                <a 
+                                    href="https://discord.com/developers/applications" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    style={{ color: COLOR_PRIMARY, textDecoration: 'none' }}
+                                >
+                                    Discord Developer Portal 열기
+                                </a>
+                            </div>
+                        </div>
+
+                        {/* 자리비움 타임아웃 */}
+                        <div>
+                            <label style={{
+                                display: 'block',
+                                marginBottom: 8,
+                                fontSize: 14,
+                                fontWeight: 500,
+                                color: COLOR_TEXT
+                            }}>
+                                자리비움 타임아웃 (분)
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="60"
+                                value={settings.idleTimeout}
+                                onChange={(e) => handleSettingChange('idleTimeout', parseInt(e.target.value) || 10)}
+                                style={{
+                                    width: '100%',
+                                    padding: 12,
+                                    backgroundColor: COLOR_BG_WINDOW,
+                                    border: `1px solid ${COLOR_BORDER}`,
+                                    borderRadius: 8,
+                                    color: COLOR_TEXT,
+                                    fontSize: 14
+                                }}
+                            />
+                            <div style={{
+                                fontSize: 12,
+                                color: COLOR_TEXT_SUB,
+                                marginTop: 4
+                            }}>
+                                사용자가 비활성 상태로 간주되는 시간입니다. (1-60분)
+                            </div>
+                        </div>
+
+                        {/* 이미지 키 설정 */}
+                        <div>
+                            <h3 style={{
+                                margin: '0 0 12px 0',
+                                fontSize: 16,
+                                color: COLOR_PRIMARY
+                            }}>
+                                Discord 이미지 키 설정
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                {[
+                                    { key: 'onlineImageKey', label: '온라인 상태', placeholder: 'online' },
+                                    { key: 'idleImageKey', label: '자리비움 상태', placeholder: 'idle' },
+                                    { key: 'errorImageKey', label: '오류 상태', placeholder: 'error' },
+                                    { key: 'warningImageKey', label: '경고 상태', placeholder: 'warning' }
+                                ].map(({ key, label, placeholder }) => (
+                                    <div key={key}>
+                                        <label style={{
+                                            display: 'block',
+                                            marginBottom: 4,
+                                            fontSize: 13,
+                                            color: COLOR_TEXT
+                                        }}>
+                                            {label}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={settings[key]}
+                                            onChange={(e) => handleSettingChange(key, e.target.value)}
+                                            placeholder={placeholder}
+                                            style={{
+                                                width: '100%',
+                                                padding: 8,
+                                                backgroundColor: COLOR_BG_WINDOW,
+                                                border: `1px solid ${COLOR_BORDER}`,
+                                                borderRadius: 6,
+                                                color: COLOR_TEXT,
+                                                fontSize: 13
+                                            }}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{
+                                fontSize: 12,
+                                color: COLOR_TEXT_SUB,
+                                marginTop: 8,
+                                lineHeight: 1.4
+                            }}>
+                                Discord 애플리케이션의 Rich Presence Assets에 등록된 이미지 키를 입력하세요.
+                                <br />
+                                <strong>팁:</strong> 이미지 키는 대소문자를 구분하며, Discord Developer Portal의 Rich Presence Assets 섹션에서 확인할 수 있습니다.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{
+                        display: 'flex',
+                        gap: 12,
+                        marginTop: 24,
+                        justifyContent: 'flex-end'
+                    }}>
+                        <button
+                            onClick={() => setShowSettings(false)}
+                            style={{
+                                padding: '10px 20px',
+                                backgroundColor: 'transparent',
+                                border: `1px solid ${COLOR_BORDER}`,
+                                borderRadius: 8,
+                                color: COLOR_TEXT,
+                                cursor: 'pointer',
+                                fontSize: 14
+                            }}
+                        >
+                            취소
+                        </button>
+                        <button
+                            onClick={saveSettings}
+                            disabled={settingsLoading}
+                            style={{
+                                padding: '10px 20px',
+                                backgroundColor: settingsLoading ? COLOR_BORDER : COLOR_PRIMARY,
+                                border: 'none',
+                                borderRadius: 8,
+                                color: COLOR_WHITE,
+                                cursor: settingsLoading ? 'not-allowed' : 'pointer',
+                                fontSize: 14,
+                                opacity: settingsLoading ? 0.6 : 1,
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!settingsLoading) {
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                    e.currentTarget.style.boxShadow = `0 4px 12px ${COLOR_PRIMARY.replace(')', ' / 0.3)')}`;
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!settingsLoading) {
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                    e.currentTarget.style.boxShadow = 'none';
+                                }
+                            }}
+                        >
+                            {settingsLoading ? '저장 중...' : '저장 (Ctrl+Enter)'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div style={{
             fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
@@ -214,7 +521,36 @@ function App() {
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <h1 style={{ margin: 0, fontSize: 28 }}>Distalker</h1>
-                    {rpcStatus && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button
+                            onClick={() => setShowSettings(true)}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'transparent',
+                                border: `1px solid ${COLOR_BORDER}`,
+                                borderRadius: 8,
+                                color: COLOR_TEXT,
+                                cursor: 'pointer',
+                                fontSize: 14,
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = COLOR_WHITE.replace(')', ' / 0.05)');
+                                e.currentTarget.style.borderColor = COLOR_PRIMARY;
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.borderColor = COLOR_BORDER;
+                                e.currentTarget.style.transform = 'translateY(0)';
+                            }}
+                        >
+                            <span>설정</span>
+                        </button>
+                        {rpcStatus && (
                         <div 
                             style={{
                                 display: 'flex',
@@ -265,12 +601,45 @@ function App() {
                                 {rpcSharing ? '활동 상태 공유 중' : rpcStatus.connected ? '활동 상태 공유 안 함' : 'Discord와 연결되지 않음'}
                             </span>
                         </div>
-                    )}
+                        )}
+                    </div>
                 </div>
                 <p style={{ opacity: 0.8 }}>
                     시스템 트레이에서 Distalker를 우클릭하거나 오른쪽 버튼을 눌러 활동 공유를 켜고 끌 수 있습니다.
                     Distalker의 중복 실행을 방지하기 위해 시스템 트레이에 Distalker가 존재하는 경우 좌클릭하여 실행하세요.
                 </p>
+
+                {/* 설정 상태 표시 */}
+                {settings.clientId && (
+                    <div style={{
+                        marginTop: 16,
+                        padding: 12,
+                        background: COLOR_GREEN_BG,
+                        borderRadius: 8,
+                        border: `1px solid ${COLOR_GREEN}`,
+                        fontSize: 12
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            marginBottom: 4
+                        }}>
+                            <div style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                backgroundColor: COLOR_GREEN
+                            }} />
+                            <span style={{ color: COLOR_GREEN, fontWeight: 500 }}>
+                                설정 완료
+                            </span>
+                        </div>
+                        <div style={{ color: COLOR_TEXT_SUB, lineHeight: 1.4 }}>
+                            Discord 클라이언트 ID가 설정되었습니다. 자리비움 타임아웃: {settings.idleTimeout}분
+                        </div>
+                    </div>
+                )}
 
                 {/* 현재 감지된 창 정보 */}
                 {currentWindow && (
@@ -385,6 +754,7 @@ function App() {
                     </div>
                 )}
             </div>
+            <SettingsModal />
         </div>
     );
 }
