@@ -15,7 +15,8 @@
     "build:linux-appimage": "npm run build:renderer && electron-builder --linux AppImage",
     "build:linux-deb": "npm run build:renderer && electron-builder --linux deb",
     "dist": "npm run build:renderer && electron-builder",
-    "icons:generate": "node scripts/generate-icons.mjs"
+    "icons:generate": "node scripts/generate-icons.mjs",
+    "remaster": "vite --config src/remaster/vite.config.mjs"
   },
   "keywords": [
     "discord",
@@ -36,6 +37,7 @@
     "discord-rpc": "^4.0.1",
     "dotenv": "^16.4.5",
     "electron-updater": "^6.6.2",
+    "prop-types": "^15.8.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
