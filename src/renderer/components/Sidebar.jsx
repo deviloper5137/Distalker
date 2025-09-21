@@ -251,7 +251,7 @@ function Sidebar({ items = [], theme = 'light' }) {
         <div
             ref={sidebarRef}
             style={{
-                width: expand ? 280 : 72,
+                width: expand ? 270 : 72,
                 height: 'calc(100vh - 24px)',
                 background: t.background,
                 border: t.border,

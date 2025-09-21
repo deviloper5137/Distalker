@@ -416,10 +416,10 @@ async function createWindow() {
     const iconPath = path.join(rootFolder, 'assets', 'icons', 'win', 'app.ico');
 
     mainWindow = new BrowserWindow({
-        width: 940,
-        height: 640,
+        width: 1600,
+        height: 800,
         icon: iconPath,
-        resizable: false,
+        resizable: true,
         show: false,
 
         webPreferences: {
@@ -609,19 +609,16 @@ function setupIpc() {
 
     ipcMain.handle('app:save-user-settings', (evt, settings) => {
         userSettings = { ...userSettings, ...settings };
-        // 전역에서 접근 가능하도록 설정
         global.userSettings = userSettings;
         saveUserSettings();
-        
-        // 클라이언트 ID가 변경된 경우 RPC 재초기화
-        if (settings.clientId && settings.clientId !== process.env.DISCORD_CLIENT_ID) {
-            logger.info('클라이언트 ID가 변경되어 RPC를 재초기화합니다.');
-            // RPC 재초기화는 앱 재시작 시 적용됨
-            notify('🔔 설정 변경', '클라이언트 ID가 변경되었습니다. 변경사항을 적용하려면 앱을 재시작하세요.');
-        }
-        
+        // 안내 메시지, RPC 재초기화 안내 등 부가 로직 제거
         return userSettings;
     });
+}
+
+// formatWithVars 함수 추가
+function formatWithVars(format, app, title) {
+    return format.replace(/\{app\}/g, app).replace(/\{title\}/g, title);
 }
 
 async function startUp() {
@@ -750,6 +747,17 @@ async function startUp() {
 
                 try {
                     if (rpcClient?.setActivity && rpcEnabled && rpcClient.isConnected()) {
+                        // 블랙리스트, 포맷 적용
+                        const appBlacklist = userSettings.appBlacklist || [];
+                        const detailsFormat = userSettings.detailsFormat || '{app} 하는 중';
+                        const stateFormat = userSettings.stateFormat || '창: {title}';
+                        if (appBlacklist.includes(currentWindowInfo.app)) {
+                            logger.info(`블랙리스트 앱(${currentWindowInfo.app}) 실행 중, RPC 표시 생략`);
+                            return;
+                        }
+                        const details = formatWithVars(detailsFormat, currentWindowInfo.app, currentWindowInfo.title);
+                        const state = formatWithVars(stateFormat, currentWindowInfo.app, currentWindowInfo.title);
+                        // 이후 details, state를 기존대로 RPC에 전달
                         await updateRpcActivityWithUserStatus({
                             details,
                             state,
