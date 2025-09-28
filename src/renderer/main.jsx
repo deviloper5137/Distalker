@@ -29,7 +29,7 @@ const styles = {
     }
 }
 
-const theme = 'dark';
+const theme = 'light';
 
 function App() {
     const [activeTab, setActiveTab] = useState('start');

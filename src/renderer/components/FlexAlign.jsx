@@ -26,18 +26,23 @@ function getFlexStyles(options = {}) {
             flexDirection = 'row';
     }
 
-    // alignItems: 세로축 정렬, justifyContent: 가로축 정렬
-    // flexDirection에 따라 축이 바뀌므로, 옵션을 그대로 사용
+    // 기본값
     let alignItems = 'center';
     let justifyContent = 'center';
 
-    if (options.align === 'start') alignItems = 'flex-start';
-    else if (options.align === 'end') alignItems = 'flex-end';
-    else if (options.align === 'center') alignItems = 'center';
+    // 입력값 해석 함수
+    const toFlexValue = (v) => v === 'start' ? 'flex-start' : v === 'end' ? 'flex-end' : 'center';
 
-    if (options.justify === 'start') justifyContent = 'flex-start';
-    else if (options.justify === 'end') justifyContent = 'flex-end';
-    else if (options.justify === 'center') justifyContent = 'center';
+    // 규칙: options.align = 세로축 정렬, options.justify = 가로축 정렬
+    // row(가로)에서는 align->alignItems(세로), justify->justifyContent(가로)
+    // column(세로)에서는 align->justifyContent(세로), justify->alignItems(가로)로 스왑
+    if (flexDirection === 'column' || flexDirection === 'column-reverse') {
+        justifyContent = toFlexValue(options.align ?? 'center');
+        alignItems = toFlexValue(options.justify ?? 'center');
+    } else {
+        alignItems = toFlexValue(options.align ?? 'center');
+        justifyContent = toFlexValue(options.justify ?? 'center');
+    }
 
     return {
         display: 'flex',

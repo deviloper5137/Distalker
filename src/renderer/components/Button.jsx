@@ -21,7 +21,7 @@ const themeStyles = {
     }
 };
 
-export function Button({ children, theme = "light" }) {
+export function Button({ children, theme = "light", style, onClick, ...restProps }) {
     const [pressed, setPressed] = useState(false);
 
     // theme이 잘못 들어오면 light로 fallback
@@ -42,6 +42,13 @@ export function Button({ children, theme = "light" }) {
         cursor: 'pointer',
         transition: 'transform 0.3s cubic-bezier(.3,1.35,.5,1), box-shadow 0.3s cubic-bezier(.3,1.35,.5,1)',
         transform: pressed ? 'scale(0.95)' : 'scale(1)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        whiteSpace: 'nowrap',
+        lineHeight: 1,
+        minWidth: 64,
+        ...style,
     }
 
     return (
@@ -50,6 +57,8 @@ export function Button({ children, theme = "light" }) {
             onMouseDown={() => setPressed(true)}
             onMouseUp={() => setPressed(false)}
             onMouseLeave={() => setPressed(false)}
+            onClick={onClick}
+            {...restProps}
         >
             {children}
         </button>
