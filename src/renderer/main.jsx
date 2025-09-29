@@ -47,7 +47,7 @@ function App() {
     ];
 
     return (
-        <FlexAlign options={{ align: 'center', justify: 'start' }} style={{ width: '100vw', height: '100vh', background: styles[theme].background, color: styles[theme].color, fontFamily: styles.global.fontFamily, boxSizing: 'border-box', padding: 12, gap: 12, overflow: 'hidden' }}>
+        <FlexAlign options={{ align: 'center', justify: 'start' }} style={{ width: '100vw', height: '100vh', background: styles[theme].background, color: styles[theme].color, fontFamily: styles.global.fontFamily, boxSizing: 'border-box', padding: 12, gap: 12, overflow: 'auto' }}>
             <Sidebar theme={theme} items={sidebarItems} />
             {activeTab === 'start' && <Start theme={theme} />}
             {activeTab === 'activity' && <ActivityManager theme={theme} />}

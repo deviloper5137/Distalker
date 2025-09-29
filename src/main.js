@@ -751,12 +751,17 @@ async function startUp() {
                         const appBlacklist = userSettings.appBlacklist || [];
                         const detailsFormat = userSettings.detailsFormat || '{app} 하는 중';
                         const stateFormat = userSettings.stateFormat || '창: {title}';
+                        let displayApp = currentWindowInfo.app;
+                        let displayTitle = currentWindowInfo.title;
+                        
                         if (appBlacklist.includes(currentWindowInfo.app)) {
-                            logger.info(`블랙리스트 앱(${currentWindowInfo.app}) 실행 중, RPC 표시 생략`);
-                            return;
+                            displayApp = '알 수 없는 앱';
+                            displayTitle = '알 수 없는 윈도우';
+                            logger.info(`블랙리스트 앱(${currentWindowInfo.app}) 실행 중, "알 수 없는 앱"으로 표시`);
                         }
-                        const details = formatWithVars(detailsFormat, currentWindowInfo.app, currentWindowInfo.title);
-                        const state = formatWithVars(stateFormat, currentWindowInfo.app, currentWindowInfo.title);
+                        
+                        const details = formatWithVars(detailsFormat, displayApp, displayTitle);
+                        const state = formatWithVars(stateFormat, displayApp, displayTitle);
                         // 이후 details, state를 기존대로 RPC에 전달
                         await updateRpcActivityWithUserStatus({
                             details,

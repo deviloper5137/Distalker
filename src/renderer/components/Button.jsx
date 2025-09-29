@@ -11,13 +11,13 @@ const themeStyles = {
         border: '2px solid #0C0C0C',
         background: '#0C0C0C',
         color: '#F0F3F9',
-        boxShadow: (pressed) => pressed ? '0 0px 0px #0C0C0C' : '0 3px 8px #0C0C0C',
+        boxShadow: (pressed) => pressed ? '0 0px 0px #0C0C0C' : '0 3px 8px #0C0C0CAA',
     },
     dark: {
         border: '2px solid #F0F3F9',
         background: '#F0F3F9',
         color: '#0C0C0C',
-        boxShadow: (pressed) => pressed ? '0 0px 0px #F0F3F9' : '0 3px 8px #F0F3F9',
+        boxShadow: (pressed) => pressed ? '0 0px 0px #F0F3F9' : '0 3px 8px #F0F3F9AA',
     }
 };
 

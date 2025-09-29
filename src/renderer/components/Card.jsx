@@ -1,103 +1,79 @@
 import React, { useState, useRef, useEffect } from 'react';
+import FlexAlign from './FlexAlign';
 
 const themeStyles = {
     global: {
-        borderRadius: 12,
-        transition: 'box-shadow 0.3s cubic-bezier(.3,1.35,.5,1), background 0.3s ease',
+        borderRadius: 22,
+        transition: 'box-shadow 0.3s ease, background 0.3s ease, opacity 0.3s ease, transform 0.3s cubic-bezier(.3,1.35,.5,1)',
+        opacity: (hover) => hover ? 1 : 0.8,
     },
     light: {
         border: '2px solid #0C0C0C',
-        background: '#F0F3F9',
+        background: '#F6F9FF',
         color: '#0C0C0C',
         activeBackground: '#F0F3F9',
         hoverBackground: '#C0C3C9',
-        boxShadow: (hover) => hover ? '0 3px 8px #0C0C0C' : '0 0px 0px #0C0C0C'
+        boxShadow: (hover) => hover ? '0 3px 16px #0C0C0CAA' : '0 0px 0px #0c0c0cAA'
     },
     dark: {
         border: '2px solid #F0F3F9',
-        background: '#0C0C0C',
+        background: '#0F0F0F',
         color: '#F0F3F9',
         activeBackground: '#232323',
         hoverBackground: '#202020',
-        boxShadow: (hover) => hover ? '0 3px 8px #F0F3F9' : '0 0px 0px #F0F3F9',
+        boxShadow: (hover) => hover ? '0 3px 16px #F0F3F9AA' : '0 0px 0px #F0F3F9AA',
     }
 };
 
-export function Card({ items = [], theme = 'light' }) {
-    const [expand, setExpand] = useState(false);
-    const [hover, setHover] = useState(false);
-    const sidebarRef = useRef(null);
-    const iconRef = useRef(null);
-    const [iconMargin, setIconMargin] = useState(0);
-
-    const displayItems = React.useMemo(() => [
-        {
-            icon: distalkerIcon,
-            label: 'Distalker',
-            separator: true,
-            onClick: () => setExpand(expand => !expand),
-        },
-        ...(items || [])
-    ], [items]);
-
-    const g = themeStyles.global;
+export function Card({ theme = 'light', children, style = {} }) {
     const t = themeStyles[theme] || themeStyles.light;
 
+    const [hover, setHover] = useState(false);
+    const containerRef = useRef(null);
+    const [size, setSize] = useState({ width: 0, height: 0 });
+
     useEffect(() => {
-        if (iconRef.current) {
-            const iconSize = iconRef.current.offsetWidth; // 54
-            const collapsedContentWidth = 72 - 12; // 60
-            const margin = Math.round((collapsedContentWidth - iconSize) / 2);
-            setIconMargin(margin);
-        }
-    }, [expand]);
+        const el = containerRef.current;
+        if (!el) return;
+        const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const { width, height } = entry.contentRect;
+                setSize({ width, height });
+            }
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+
+    const transform = (() => {
+        if (!hover) return 'scale(1)';
+        const { width, height } = size;
+        if (width <= 0 || height <= 0) return 'scale(1)';
+        const scaleX = (width + 4) / width; // +2px left, +2px right
+        const scaleY = (height + 4) / height; // +2px top, +2px bottom
+        return `scale(${scaleX}, ${scaleY})`;
+    })();
 
     return (
-        <div
-            ref={sidebarRef}
+        <FlexAlign
+            options={{ justify: 'center', align: 'center' }}
             style={{
-                width: expand ? 270 : 72,
-                height: 'calc(100vh - 24px)',
-                background: t.background,
+                borderRadius: themeStyles.global.borderRadius,
                 border: t.border,
-                borderRadius: g.borderRadius,
-                justifyContent: 'center',
-                overflow: 'visible',
+                background: t.background,
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                transition: themeStyles.global.transition,
+                opacity: themeStyles.global.opacity(hover),
                 boxShadow: t.boxShadow(hover),
-                transition: g.transition,
-                boxSizing: 'border-box',
-                padding: 6,
-                willChange: 'width, box-shadow',
+                transform,
+                ...style
             }}
+            ref={containerRef}
             onMouseEnter={() => setHover(true)}
             onMouseLeave={() => setHover(false)}
         >
-            <style>
-                {`
-                .sidebar-scroll { 
-                    scrollbar-width: none;
-                    -ms-overflow-style: none;
-                }
-                .sidebar-scroll::-webkit-scrollbar { 
-                    display: none;
-                    width: 0; 
-                    height: 0; 
-                }
-                `}
-            </style>
-            <FlexAlign 
-                options={{ align: 'start', justify: 'center' }}
-                style={{ width: '100%', height: '100%' }}
-            >
-                <div className="sidebar-scroll" style={{ width: '100%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
-                    <ItemList 
-                        items={displayItems}
-                        theme={theme}
-                        expand={expand}
-                        iconMargin={iconMargin}
-                    />
-                </div>
-            </FlexAlign>
-        </div>
-    );
+            {children}
+        </FlexAlign>
+    )
 }
